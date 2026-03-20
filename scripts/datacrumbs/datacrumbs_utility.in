@@ -1,0 +1,171 @@
+#! /usr/bin/env bash
+
+set -eo pipefail
+
+SCRIPT_DIR=@DATACRUMBS_INSTALL_BINARYDIR@
+
+if [[ -f "${SCRIPT_DIR}/datacrumbs_logging" ]]; then
+	source "${SCRIPT_DIR}/datacrumbs_logging"
+else
+	echo "Error: datacrumbs_logging not found in ${SCRIPT_DIR}" >&2
+	exit 1
+fi
+
+readonly DATACRUMBS_CLIENT_LIB="@DATACRUMBS_INSTALL_LIB_DIR@/libdatacrumbs_client.so"
+readonly DATACRUMBS_REMOTE_CONFIGS_DIR="@DATACRUMBS_INSTALL_CONFIGS_DIR@"
+readonly DATACRUMBS_REMOTE_RUN_ID_FILE="@DATACRUMBS_INSTALL_RUNSTATEDIR@/@PROJECT_NAME@/datacrumbs.runid"
+readonly DATACRUMBS_REMOTE_JOB_ID_VAR="@DATACRUMBS_SCHEDULER_JOBID_ENV_VAR@"
+
+datacrumbs_run_command() {
+	local err_msg="$1"
+	shift
+	if [[ "${DRY_RUN:-0}" == "1" ]]; then
+		log "[DRY RUN] Would run: $*"
+		return 0
+	fi
+	"$@" || {
+		local status=$?
+		error "${err_msg}"
+		return "${status}"
+	}
+}
+
+check_regular_user() {
+	if [[ "${DATACRUMBS_IS_ROOT:-0}" == "1" ]]; then
+		error "This script should be run as a regular user, not as root."
+		exit 1
+	fi
+}
+
+default_ssh_user() {
+	echo "${DATACRUMBS_USER:-$(id -un)}"
+}
+
+resolve_run_id() {
+	local explicit_run_id="$1"
+	local env_var_name="${DATACRUMBS_REMOTE_JOB_ID_VAR}"
+	if [[ -n "${explicit_run_id}" ]]; then
+		echo "${explicit_run_id}"
+	elif [[ -n "${env_var_name}" && "${env_var_name}" != "NONE" && -n "${!env_var_name-}" ]]; then
+		echo "${!env_var_name}"
+	else
+		date +"%Y%m%d%H%M%S"
+	fi
+}
+
+expand_node_list() {
+	local node_list="$1"
+	if [[ -z "${node_list}" ]]; then
+		return 0
+	fi
+
+	if [[ "${node_list}" == *"["*"]"* ]] && command -v scontrol >/dev/null 2>&1; then
+		scontrol show hostnames "${node_list}"
+		return 0
+	fi
+
+	if [[ "${node_list}" == *"["*"]"* ]] && command -v flux >/dev/null 2>&1; then
+		flux hostlist expand "${node_list}"
+		return 0
+	fi
+
+	printf '%s\n' "${node_list}" | tr ', ' '\n\n' | sed '/^$/d'
+}
+
+build_ssh_target() {
+	local node="$1"
+	local ssh_user="$2"
+	if [[ -n "${ssh_user}" ]]; then
+		echo "${ssh_user}@${node}"
+	else
+		echo "${node}"
+	fi
+}
+
+remote_write_env_and_start_service() {
+	local node="$1"
+	local ssh_user="$2"
+	local run_id="$3"
+	local probe_file="$4"
+	local target
+	target=$(build_ssh_target "${node}" "${ssh_user}")
+
+	if [[ "${DRY_RUN:-0}" == "1" ]]; then
+		log "[DRY RUN] Would start datacrumbs@${run_id}.service on ${target} using probe file ${probe_file}"
+		return 0
+	fi
+
+	ssh "${target}" bash -s -- "${run_id}" "${probe_file}" "${DATACRUMBS_REMOTE_CONFIGS_DIR}" <<'EOF'
+set -eo pipefail
+run_id="$1"
+probe_file="$2"
+configs_dir="$3"
+env_file="${configs_dir}/datacrumbs-${run_id}.env"
+escaped_probe_file="${probe_file//\\/\\\\}"
+escaped_probe_file="${escaped_probe_file//\"/\\\"}"
+sudo mkdir -p "${configs_dir}"
+printf 'DATACRUMBS_PROBE_FILE="%s"\n' "${escaped_probe_file}" | sudo tee "${env_file}" >/dev/null
+sudo chmod 0644 "${env_file}" 2>/dev/null || true
+sudo systemctl start "datacrumbs@${run_id}.service"
+EOF
+}
+
+remote_stop_service_and_remove_env() {
+	local node="$1"
+	local ssh_user="$2"
+	local run_id="$3"
+	local target
+	target=$(build_ssh_target "${node}" "${ssh_user}")
+
+	if [[ "${DRY_RUN:-0}" == "1" ]]; then
+		log "[DRY RUN] Would stop datacrumbs@${run_id}.service on ${target}"
+		return 0
+	fi
+
+	ssh "${target}" bash -s -- "${run_id}" "${DATACRUMBS_REMOTE_CONFIGS_DIR}" <<'EOF'
+set -eo pipefail
+run_id="$1"
+configs_dir="$2"
+env_file="${configs_dir}/datacrumbs-${run_id}.env"
+sudo systemctl stop "datacrumbs@${run_id}.service"
+sudo rm -f "${env_file}"
+EOF
+}
+
+run_parallel_node_action() {
+	local action="$1"
+	local ssh_user="$2"
+	local run_id="$3"
+	local probe_file="$4"
+	shift 4
+	local -a nodes=("$@")
+	local -a pids=()
+	local -a node_names=()
+	local failed=0
+	local index=0
+
+	for node in "${nodes[@]}"; do
+		if [[ -z "${node}" ]]; then
+			continue
+		fi
+		if [[ "${action}" == "start" ]]; then
+			remote_write_env_and_start_service "${node}" "${ssh_user}" "${run_id}" "${probe_file}" &
+		else
+			remote_stop_service_and_remove_env "${node}" "${ssh_user}" "${run_id}" &
+		fi
+		pids+=("$!")
+		node_names+=("${node}")
+	done
+
+	for pid in "${pids[@]}"; do
+		if ! wait "${pid}"; then
+			error "Failed ${action} on node ${node_names[${index}]}"
+			failed=1
+		else
+			log "${action^} completed on node ${node_names[${index}]}"
+		fi
+		index=$((index + 1))
+	done
+
+	return "${failed}"
+}

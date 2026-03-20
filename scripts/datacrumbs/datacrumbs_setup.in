@@ -1,0 +1,19 @@
+#! /usr/bin/env bash
+
+set -eo pipefail
+
+SCRIPT_DIR=@DATACRUMBS_INSTALL_BINARYDIR@
+
+source "${SCRIPT_DIR}/datacrumbs_utility"
+
+if [[ "$(id -u)" != "0" ]]; then
+	export DATACRUMBS_IS_ROOT=0
+	export DATACRUMBS_USER="$(id -un)"
+else
+	export DATACRUMBS_IS_ROOT=1
+	export DATACRUMBS_USER="${SUDO_USER:-${USER:-root}}"
+fi
+
+readonly DATACRUMBS_IS_ROOT
+readonly DATACRUMBS_USER
+export DATACRUMBS_CLIENT_LIB

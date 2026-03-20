@@ -1,0 +1,53 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="@CMAKE_RUNTIME_OUTPUT_DIRECTORY@"
+
+if [[ -f "$SCRIPT_DIR/datacrumbs_args" ]]; then
+	source "$SCRIPT_DIR/datacrumbs_args"
+else
+	echo "Error: datacrumbs_args not found in $SCRIPT_DIR" >&2
+	exit 1
+fi
+
+APP="DC_SYSTEM_CONFIGURATOR"
+dc_args_init "$APP"
+dc_args_parse "$APP" "datacrumbs_system_configurator" "$@"
+
+config_name="@DATACRUMBS_HOST@"
+runtime_user="@DATACRUMBS_INSTALL_USER@"
+config_path="@CMAKE_CONFIG_OUTPUT_DIRECTORY@"
+data_dir="@DATACRUMBS_BUILD_DATA_DIR@"
+trace_log_dir="@DATACRUMBS_CONFIGURED_TRACE_DIR@"
+log_dir="@DATACRUMBS_CONFIGURED_LOG_DIR@"
+disable_mpi="1"
+
+export DATACRUMBS_USER="${runtime_user}"
+source "@DATACRUMBS_BUILD_PROJECT_ENV_FILE@"
+
+mkdir -p "${data_dir}"
+export LD_LIBRARY_PATH="@CMAKE_LIBRARY_OUTPUT_DIRECTORY@:@DEPENDENCY_LIBRARY_DIRS_COLON@:${LD_LIBRARY_PATH:-}"
+
+cmd=(
+	"@DATACRUMBS_SYSTEM_CONFIGURATOR_BIN@"
+	"${config_name}"
+	"--user" "${runtime_user}"
+	"--config_path" "${config_path}"
+	"--data_dir" "${data_dir}"
+	"--trace_log_dir" "${trace_log_dir}"
+	"--log_dir" "${log_dir}"
+)
+
+if [[ "${disable_mpi}" == "1" ]]; then
+	cmd+=("--disable-mpi")
+fi
+
+if [[ "${DRY_RUN:-0}" == "1" ]]; then
+	printf "[DRY RUN]"
+	printf " %q" "${cmd[@]}"
+	printf "\n"
+	exit 0
+fi
+
+exec "${cmd[@]}"
