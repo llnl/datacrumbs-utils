@@ -36,7 +36,92 @@ set(
 
 list(APPEND CMAKE_MODULE_PATH "${DATACRUMBS_PROJECT_PATH}/cmake/modules")
 include(datacrumbs-utils)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(yaml-cpp REQUIRED)
+
+macro(load_datacrumbs_system_configuration)
+  set(_dc_system_configuration_path "")
+
+  if(DEFINED DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE
+     AND NOT DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE STREQUAL "")
+    if(EXISTS "${DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE}")
+      set(_dc_system_configuration_path "${DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE}")
+    else()
+      message(
+        FATAL_ERROR
+          "[${UPPER_PROJECT_NAME}] DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE does not exist: ${DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE}"
+      )
+    endif()
+  endif()
+
+  if(_dc_system_configuration_path STREQUAL "")
+    set(_dc_install_data_dir "${DATACRUMBS_INSTALL_DIR}/share/datacrumbs/data")
+    if(DATACRUMBS_INSTALL_USER
+       AND NOT DATACRUMBS_INSTALL_USER STREQUAL ""
+       AND NOT DATACRUMBS_INSTALL_USER STREQUAL "NONE"
+       AND DATACRUMBS_HOST
+       AND NOT DATACRUMBS_HOST STREQUAL ""
+       AND NOT DATACRUMBS_HOST STREQUAL "NONE")
+      set(
+        _dc_named_system_configuration
+        "${_dc_install_data_dir}/system-probe-${DATACRUMBS_INSTALL_USER}-${DATACRUMBS_HOST}.json.gz"
+      )
+      if(EXISTS "${_dc_named_system_configuration}")
+        set(_dc_system_configuration_path "${_dc_named_system_configuration}")
+      endif()
+    endif()
+
+    if(_dc_system_configuration_path STREQUAL "")
+      file(GLOB _dc_discovered_system_configurations "${_dc_install_data_dir}/system-probe-*.json.gz")
+      list(LENGTH _dc_discovered_system_configurations _dc_discovered_system_configuration_count)
+      if(_dc_discovered_system_configuration_count EQUAL 1)
+        list(GET _dc_discovered_system_configurations 0 _dc_system_configuration_path)
+      elseif(_dc_discovered_system_configuration_count EQUAL 0)
+        message(
+          FATAL_ERROR
+            "[${UPPER_PROJECT_NAME}] No datacrumbs system configuration found under ${_dc_install_data_dir}. Set DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE or DATACRUMBS_INSTALL_DIR."
+        )
+      else()
+        message(
+          FATAL_ERROR
+            "[${UPPER_PROJECT_NAME}] Multiple datacrumbs system configurations found under ${_dc_install_data_dir}. Set DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE or specify DATACRUMBS_HOST and DATACRUMBS_INSTALL_USER."
+        )
+      endif()
+    endif()
+  endif()
+
+  set(_dc_loaded_system_configuration "${CMAKE_BINARY_DIR}/datacrumbs-system-configuration.cmake")
+  execute_process(
+    COMMAND
+      "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/load_datacrumbs_system_configuration.py"
+      --input
+      "${_dc_system_configuration_path}"
+      --output
+      "${_dc_loaded_system_configuration}"
+    RESULT_VARIABLE _dc_load_system_configuration_result
+    ERROR_VARIABLE _dc_load_system_configuration_error
+  )
+  if(NOT _dc_load_system_configuration_result EQUAL 0)
+    string(STRIP "${_dc_load_system_configuration_error}" _dc_load_system_configuration_error)
+    message(
+      FATAL_ERROR
+        "[${UPPER_PROJECT_NAME}] Failed to load datacrumbs system configuration from ${_dc_system_configuration_path}: ${_dc_load_system_configuration_error}"
+    )
+  endif()
+
+  include("${_dc_loaded_system_configuration}")
+  message(
+    STATUS
+      "[${UPPER_PROJECT_NAME}] Loaded datacrumbs system configuration from ${_dc_system_configuration_path}"
+  )
+endmacro()
+
+macro(datacrumbs_set_default variable_name default_value)
+  if(NOT DEFINED ${variable_name} OR "${${variable_name}}" STREQUAL "")
+    set(${variable_name} "${default_value}")
+  endif()
+endmacro()
 
 option(DATACRUMBS_BUILD_ONLY "Build only the datacrumbs library without installation" OFF)
 option(DATACRUMBS_BPFTIME_COMPATIBLE "Enable compatibility with bpftime" OFF)
@@ -73,45 +158,59 @@ set_property(CACHE DATACRUMBS_LOG_LEVEL_STR PROPERTY STRINGS ERROR WARN INFO DEB
 set(DATACRUMBS_KERNEL_VERSION "" CACHE STRING "Kernel version")
 set(DATACRUMBS_KERNEL_HEADERS_PATH "" CACHE STRING "Path to the kernel headers directory")
 set(DATACRUMBS_KERNEL_PATH "" CACHE STRING "Path to the kernel source directory")
+set(
+  DATACRUMBS_BUILD_SYSTEM_CONFIGURATION_FILE
+  ""
+  CACHE FILEPATH "Path to a datacrumbs system configuration artifact generated in a build tree"
+)
+set(
+  DATACRUMBS_INSTALL_DIR
+  "${CMAKE_INSTALL_PREFIX}"
+  CACHE PATH "Path to the datacrumbs install dir used to discover the installed system configuration"
+)
+set(DATACRUMBS_INSTALL_PREFIX_PATH "${DATACRUMBS_INSTALL_DIR}")
 
 load_build_variables()
+load_datacrumbs_system_configuration()
 derive_configurations()
 find_system_details()
 include_dependencies()
 
-set(DATACRUMBS_INSTALL_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}")
-set(DATACRUMBS_INSTALL_HOST "${DATACRUMBS_HOST}")
-set(DATACRUMBS_INSTALL_CONFIGS_DIR "${DATACRUMBS_INSTALL_ETC_CONFIGSDIR}")
-set(DATACRUMBS_INSTALL_SHARED_DATA_DIR "${CMAKE_INSTALL_PREFIX}/share/datacrumbs/data")
-set(DATACRUMBS_INSTALL_DATA_DIR "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}")
-set(DATACRUMBS_SYSTEM_PROBE_FILE
-    "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/system-probe-${DATACRUMBS_INSTALL_USER}-${DATACRUMBS_HOST}.json.gz"
+datacrumbs_set_default(DATACRUMBS_INSTALL_HOST "${DATACRUMBS_HOST}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_CONFIGS_DIR "${DATACRUMBS_INSTALL_ETC_CONFIGSDIR}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_SHARED_DATA_DIR "${DATACRUMBS_INSTALL_PREFIX_PATH}/share/datacrumbs/data")
+datacrumbs_set_default(DATACRUMBS_INSTALL_DATA_DIR "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}")
+datacrumbs_set_default(
+  DATACRUMBS_SYSTEM_PROBE_FILE
+  "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/system-probe-${DATACRUMBS_INSTALL_USER}-${DATACRUMBS_HOST}.json.gz"
 )
-set(DATACRUMBS_PROBE_SECRET_FILE
-    "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/.datacrumbs-probe-secret"
+datacrumbs_set_default(
+  DATACRUMBS_PROBE_SECRET_FILE
+  "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/.datacrumbs-probe-secret"
 )
-set(DATACRUMBS_SIGN_PROBES_SOCKET_PATH
-    "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/datacrumbs-sign-probes.sock"
+datacrumbs_set_default(
+  DATACRUMBS_SIGN_PROBES_SOCKET_PATH
+  "${DATACRUMBS_INSTALL_SHARED_DATA_DIR}/datacrumbs-sign-probes.sock"
 )
-set(DATACRUMBS_TRACE_DIR_PATTERN "${DATACRUMBS_CONFIGURED_TRACE_DIR}/%YY%/%MM%/%DD%")
-set(DATACRUMBS_CLIENT_LIB "${DATACRUMBS_INSTALL_LIB_DIR}/libdatacrumbs_client.so")
-set(DATACRUMBS_JOB_SCHEDULER "${DATACRUMBS_SCHEDULER_TYPE}")
-set(DATACRUMBS_JOB_OTHER_FLAGS "${DATACRUMBS_SCHEDULER_RUN_EXTRA_ARGS}")
-set(DATACRUMBS_JOB_ID_VAR "${DATACRUMBS_SCHEDULER_JOBID_ENV_VAR}")
+datacrumbs_set_default(DATACRUMBS_TRACE_DIR_PATTERN "${DATACRUMBS_CONFIGURED_TRACE_DIR}/%YY%/%MM%/%DD%")
+datacrumbs_set_default(DATACRUMBS_CLIENT_LIB "${DATACRUMBS_INSTALL_LIB_DIR}/libdatacrumbs_client.so")
+datacrumbs_set_default(DATACRUMBS_JOB_SCHEDULER "${DATACRUMBS_SCHEDULER_TYPE}")
+datacrumbs_set_default(DATACRUMBS_JOB_OTHER_FLAGS "${DATACRUMBS_SCHEDULER_RUN_EXTRA_ARGS}")
+datacrumbs_set_default(DATACRUMBS_JOB_ID_VAR "${DATACRUMBS_SCHEDULER_JOBID_ENV_VAR}")
 if(DATACRUMBS_ENABLE_INCLUSION_PATH)
-  set(DATACRUMBS_INCLUSION_PATHS "${DATACRUMBS_INCLUSION_PATH}")
+  datacrumbs_set_default(DATACRUMBS_INCLUSION_PATHS "${DATACRUMBS_INCLUSION_PATH}")
 else()
-  set(DATACRUMBS_INCLUSION_PATHS "")
+  datacrumbs_set_default(DATACRUMBS_INCLUSION_PATHS "")
 endif()
-set(DATACRUMBS_SERVER_RUN_DIR "${DATACRUMBS_INSTALL_RUNSTATEDIR}/datacrumbs")
-set(DATACRUMBS_SERVER_RUN_ID_FILE "${DATACRUMBS_SERVER_RUN_DIR}/datacrumbs.runid")
-set(DATACRUMBS_INSTALL_PREFIX "${DATACRUMBS_INSTALL_PREFIX_PATH}")
-set(DATACRUMBS_INSTALL_BIN_DIR "${DATACRUMBS_INSTALL_BINARYDIR}")
-set(DATACRUMBS_INSTALL_SBIN_DIR "${DATACRUMBS_INSTALL_SBINARYDIR}")
-set(DATACRUMBS_INSTALL_LIBEXEC_DIR "${DATACRUMBS_INSTALL_LIBEXEC}")
-set(DATACRUMBS_INSTALL_ETC_DIR "${DATACRUMBS_INSTALL_SYSCONFDIR}")
-set(DATACRUMBS_INSTALL_MODULES_DIR "${DATACRUMBS_INSTALL_ETC_MODULESDIR}")
-set(DATACRUMBS_INSTALL_PROBE_OBJECTS_DIR "${DATACRUMBS_INSTALL_LIBEXEC}/objects")
+datacrumbs_set_default(DATACRUMBS_SERVER_RUN_DIR "${DATACRUMBS_INSTALL_RUNSTATEDIR}/datacrumbs")
+datacrumbs_set_default(DATACRUMBS_SERVER_RUN_ID_FILE "${DATACRUMBS_SERVER_RUN_DIR}/datacrumbs.runid")
+datacrumbs_set_default(DATACRUMBS_INSTALL_PREFIX "${DATACRUMBS_INSTALL_PREFIX_PATH}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_BIN_DIR "${DATACRUMBS_INSTALL_BINARYDIR}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_SBIN_DIR "${DATACRUMBS_INSTALL_SBINARYDIR}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_LIBEXEC_DIR "${DATACRUMBS_INSTALL_LIBEXEC}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_ETC_DIR "${DATACRUMBS_INSTALL_SYSCONFDIR}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_MODULES_DIR "${DATACRUMBS_INSTALL_ETC_MODULESDIR}")
+datacrumbs_set_default(DATACRUMBS_INSTALL_PROBE_OBJECTS_DIR "${DATACRUMBS_INSTALL_LIBEXEC}/objects")
 
 set(DATACRUMBS_SYSTEM_CONFIGURATION_DEFINE_KEYS
     DATACRUMBS_INSTALL_PREFIX
@@ -163,22 +262,18 @@ set(DATACRUMBS_LEGACY_SRC_ROOT "${DATACRUMBS_PROJECT_PATH}/src/datacrumbs")
 set(DATACRUMBS_STAGED_INCLUDE_ROOT "${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/datacrumbs")
 set(DATACRUMBS_BUILD_SHARE_DIR "${CMAKE_BINARY_DIR}/share/datacrumbs")
 set(DATACRUMBS_BUILD_DATA_DIR "${DATACRUMBS_BUILD_SHARE_DIR}/data")
-set(DATACRUMBS_INSTALL_SHARE_DIR "${CMAKE_INSTALL_PREFIX}/share/datacrumbs")
-set(DATACRUMBS_INSTALL_DATA_SHARE_DIR "${DATACRUMBS_INSTALL_SHARE_DIR}/data")
-set(DATACRUMBS_INSTALL_CONFIGS_DIR "${CMAKE_INSTALL_PREFIX}/etc/datacrumbs/configs")
-set(DATACRUMBS_INSTALL_ETC_MODULESDIR
-    "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/${DATACRUMBS_PACKAGE_NAME}/${CMAKE_INSTALL_MODULES_DIR}"
+datacrumbs_set_default(DATACRUMBS_INSTALL_SHARE_DIR "${DATACRUMBS_INSTALL_PREFIX_PATH}/share/datacrumbs")
+datacrumbs_set_default(DATACRUMBS_INSTALL_DATA_SHARE_DIR "${DATACRUMBS_INSTALL_SHARE_DIR}/data")
+datacrumbs_set_default(DATACRUMBS_INSTALL_CONFIGS_DIR "${DATACRUMBS_INSTALL_PREFIX_PATH}/etc/datacrumbs/configs")
+datacrumbs_set_default(
+  DATACRUMBS_INSTALL_ETC_MODULESDIR
+  "${DATACRUMBS_INSTALL_PREFIX_PATH}/${CMAKE_INSTALL_SYSCONFDIR}/${DATACRUMBS_PACKAGE_NAME}/${CMAKE_INSTALL_MODULES_DIR}"
 )
 set(DATACRUMBS_BUILD_PROJECT_ENV_FILE "${CMAKE_CONFIG_OUTPUT_DIRECTORY}/project.env.local")
 set(DATACRUMBS_INSTALL_PROJECT_ENV_FILE "${DATACRUMBS_INSTALL_CONFIGS_DIR}/project.env.local")
 set(DATACRUMBS_BUILD_MODULEFILE
     "${CMAKE_MODULES_OUTPUT_DIRECTORY}/${DATACRUMBS_PACKAGE_NAME}/${DATACRUMBS_RELEASE_VERSION_STRING}.lua"
 )
-set(DATACRUMBS_HOST_CONFIG_SOURCE
-    "${CMAKE_CURRENT_SOURCE_DIR}/etc/datacrumbs/configs/${DATACRUMBS_HOST}.yaml"
-)
-set(DATACRUMBS_HOST_CONFIG_BUILD "${CMAKE_CONFIG_OUTPUT_DIRECTORY}/${DATACRUMBS_HOST}.yaml")
-set(DATACRUMBS_HOST_CONFIG_INSTALL "${DATACRUMBS_INSTALL_CONFIGS_DIR}/${DATACRUMBS_HOST}.yaml")
 set(DATACRUMBS_BUILD_PROBE_WRAPPER "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/datacrumbs_probe_configurator")
 set(DATACRUMBS_BUILD_TRACK_SCRIPT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/datacrumbs_track")
 set(DATACRUMBS_BUILD_UNTRACK_SCRIPT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/datacrumbs_untrack")
@@ -265,14 +360,6 @@ include_directories("${CMAKE_INCLUDE_OUTPUT_DIRECTORY}")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories("${DATACRUMBS_PROJECT_PATH}/src")
 
-if(NOT EXISTS "${DATACRUMBS_HOST_CONFIG_SOURCE}")
-  message(
-    FATAL_ERROR
-      "[${UPPER_PROJECT_NAME}] Host config not found for ${DATACRUMBS_HOST}: ${DATACRUMBS_HOST_CONFIG_SOURCE}"
-  )
-endif()
-
-configure_file("${DATACRUMBS_HOST_CONFIG_SOURCE}" "${DATACRUMBS_HOST_CONFIG_BUILD}" @ONLY)
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/etc/datacrumbs/configs/project.env.local.in"
   "${DATACRUMBS_BUILD_PROJECT_ENV_FILE}"
@@ -308,8 +395,6 @@ message(STATUS "             - DATACRUMBS_CONFIGURED_LOG_DIR: ${DATACRUMBS_CONFI
 message(STATUS "             - DATACRUMBS_SCHEDULER_TYPE: ${DATACRUMBS_SCHEDULER_TYPE}")
 message(STATUS "             - DATACRUMBS_SCHEDULER_JOBID_ENV_VAR: ${DATACRUMBS_SCHEDULER_JOBID_ENV_VAR}")
 message(STATUS "             - DATACRUMBS_SCHEDULER_RUN_EXTRA_ARGS: ${DATACRUMBS_SCHEDULER_RUN_EXTRA_ARGS}")
-message(STATUS "             - Host config source: ${DATACRUMBS_HOST_CONFIG_SOURCE}")
-message(STATUS "             - Host config build copy: ${DATACRUMBS_HOST_CONFIG_BUILD}")
 message(STATUS "             - Build project env: ${DATACRUMBS_BUILD_PROJECT_ENV_FILE}")
 message(STATUS "             - Build data dir: ${DATACRUMBS_BUILD_DATA_DIR}")
 message(STATUS "             - Install configs dir: ${DATACRUMBS_INSTALL_CONFIGS_DIR}")
@@ -317,7 +402,6 @@ message(STATUS "             - Install data dir: ${DATACRUMBS_INSTALL_DATA_SHARE
 message(STATUS "             - DATACRUMBS_UTILS_PROJECT_PATH: ${DATACRUMBS_UTILS_PROJECT_PATH}")
 message(STATUS "             - DATACRUMBS_PROJECT_PATH: ${DATACRUMBS_PROJECT_PATH}")
 message(STATUS "             - Client library path: ${DATACRUMBS_BUILD_CLIENT_SO}")
-install(FILES "${DATACRUMBS_HOST_CONFIG_BUILD}" DESTINATION "${DATACRUMBS_INSTALL_CONFIGS_DIR}")
 install(FILES "${DATACRUMBS_BUILD_PROJECT_ENV_FILE}" DESTINATION "${DATACRUMBS_INSTALL_CONFIGS_DIR}")
 install(
   FILES "${DATACRUMBS_BUILD_MODULEFILE}"
