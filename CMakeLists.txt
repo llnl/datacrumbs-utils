@@ -43,6 +43,7 @@ option(DATACRUMBS_BPFTIME_COMPATIBLE "Enable compatibility with bpftime" OFF)
 option(DATACRUMBS_ENABLE_OPT "Enable tracing" ON)
 option(DATACRUMBS_TRACE_ALL_PROCESSES_OPT "Trace all processes" OFF)
 option(DATACRUMBS_BPF_PRINT_ENABLE "Enable BPF print" OFF)
+option(DATACRUMBS_DISABLE_PROBE_SIGNING "Disable probe signing and signature verification" OFF)
 option(DATACRUMBS_SKIP_PROBE_EXPLORING "Skip running the probe explorer helper target" OFF)
 option(DATACRUMBS_SKIP_PROBE_GENERATION "Compatibility toggle retained from datacrumbs" ON)
 

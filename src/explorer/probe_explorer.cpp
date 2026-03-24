@@ -20,6 +20,7 @@
 
 namespace {
 
+#ifndef DATACRUMBS_DISABLE_PROBE_SIGNING
 std::string probe_signing_payload(json_object* summary, json_object* categories) {
   json_object* root = json_object_new_object();
   json_object_object_add(root, "summary", json_object_get(summary));
@@ -30,6 +31,7 @@ std::string probe_signing_payload(json_object* summary, json_object* categories)
   json_object_put(root);
   return result;
 }
+#endif
 
 const char* probe_type_to_string(datacrumbs::ProbeType type) {
   switch (type) {
@@ -1836,6 +1838,7 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
   json_object_object_add(root, "summary", summary);
   json_object_object_add(root, "categories", json_object_get(jarray));
 
+#ifndef DATACRUMBS_DISABLE_PROBE_SIGNING
   const std::string signing_payload = probe_signing_payload(summary, jarray);
   std::string checksum;
   std::string signing_error;
@@ -1851,6 +1854,10 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
 
   json_object_object_add(root, "checksum_algorithm", json_object_new_string("hmac-sha256"));
   json_object_object_add(root, "checksum", json_object_new_string(checksum.c_str()));
+#else
+  DC_LOG_WARN("Probe signing is disabled. Writing unsigned probes file: %s",
+              configManager_->probe_file_path.c_str());
+#endif
 
   const char* signed_json = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY);
   const std::string signed_payload = signed_json != nullptr ? signed_json : "";
