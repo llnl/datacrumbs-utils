@@ -315,17 +315,6 @@ configure_file(
   "${DATACRUMBS_STAGED_INCLUDE_ROOT}/datacrumbs_config.h"
   @ONLY
 )
-configure_file(
-  "${DATACRUMBS_PROJECT_PATH}/etc/datacrumbs/plugins/custom_probes/custom_probes.h.in"
-  "${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/custom_probes.h"
-  @ONLY
-)
-configure_file(
-  "${DATACRUMBS_PROJECT_PATH}/etc/datacrumbs/plugins/custom_probes/custom_probes_process.h.in"
-  "${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/custom_probes_process.h"
-  @ONLY
-)
-
 set(DATACRUMBS_MOVED_HEADERS
     client/library.h
     common/configuration_manager.h
@@ -349,7 +338,6 @@ set(DATACRUMBS_SHARED_HEADERS
     common/enumerations.h
     common/typedefs.h
     common/utils.h
-    server/bpf/shared.h
 )
 
 foreach(header IN LISTS DATACRUMBS_SHARED_HEADERS)
@@ -358,7 +346,6 @@ endforeach()
 
 include_directories("${CMAKE_INCLUDE_OUTPUT_DIRECTORY}")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
-include_directories("${DATACRUMBS_PROJECT_PATH}/src")
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/etc/datacrumbs/configs/project.env.local.in"
