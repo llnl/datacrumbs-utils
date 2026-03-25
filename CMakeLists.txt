@@ -34,6 +34,7 @@ set(
   CACHE PATH "Path to the datacrumbs project root"
 )
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 list(APPEND CMAKE_MODULE_PATH "${DATACRUMBS_PROJECT_PATH}/cmake/modules")
 include(datacrumbs-utils)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
