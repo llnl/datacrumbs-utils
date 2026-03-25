@@ -37,6 +37,7 @@ set(
 list(APPEND CMAKE_MODULE_PATH "${DATACRUMBS_PROJECT_PATH}/cmake/modules")
 include(datacrumbs-utils)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 macro(load_datacrumbs_system_configuration)
