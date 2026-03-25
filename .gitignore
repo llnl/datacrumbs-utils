@@ -41,3 +41,4 @@
 *.dwo
 .nfs*
 build*
+*__pycache__*

@@ -1,4 +1,4 @@
-#include "ksym_capture.h"
+#include <datacrumbs/utils/explorer/mechanism/ksym_capture.h>
 int main() {
   KSymCapture ksym;
   std::string pattern;

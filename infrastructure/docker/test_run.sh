@@ -5,7 +5,8 @@ set -euo pipefail
 REPO_ROOT="/opt/datacrumbs"
 BUILD_DIR="${REPO_ROOT}/datacrumbs-build"
 INSTALL_PREFIX="/opt/datacrumbs-install"
-CONFIG_YAML="${INSTALL_PREFIX}/etc/datacrumbs/configs/docker.yaml"
+TEMPLATE_YAML="${REPO_ROOT}/docs/configs/corona.yaml"
+CONFIG_YAML="/tmp/datacrumbs-docker-config.yaml"
 PROBE_FILE="/tmp/datacrumbs-docker-probes.json.gz"
 OUT_FILE="/tmp/img_temp.bin"
 
@@ -24,9 +25,13 @@ cmake -DDATACRUMBS_HOST=docker \
 cmake --build . -j"$(nproc)"
 cmake --install .
 
-test -f "${CONFIG_YAML}"
 test -x "${INSTALL_PREFIX}/bin/datacrumbs_probe_configurator"
 test -x "${INSTALL_PREFIX}/bin/datacrumbs_wrap"
+test -f "${TEMPLATE_YAML}"
+"${INSTALL_PREFIX}/bin/datacrumbs_configure_template" \
+	"${TEMPLATE_YAML}" \
+	"${CONFIG_YAML}"
+test -f "${CONFIG_YAML}"
 
 "${INSTALL_PREFIX}/bin/datacrumbs_probe_configurator" "${CONFIG_YAML}" "${PROBE_FILE}"
 test -f "${PROBE_FILE}"

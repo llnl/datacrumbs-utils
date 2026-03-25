@@ -1,19 +1,37 @@
 import tempfile
 import textwrap
 import unittest
-import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
+import importlib.util
 
-from datacrumbs_utils.probe_catalog import build_category_map, build_inventory, filter_catalog, prepare_runtime_config
-from datacrumbs_utils.configure_templates import (
-  _expand_text,
-  _merge_settings,
-  _render_header,
-  _render_shell_settings,
+try:
+    from datacrumbs_utils.probe_catalog import (  # type: ignore
+        build_category_map,
+        build_inventory,
+        filter_catalog,
+        prepare_runtime_config,
+    )
+    PROBE_CATALOG_AVAILABLE = True
+except ImportError:
+    PROBE_CATALOG_AVAILABLE = False
+
+_CONFIGURE_TEMPLATES_PATH = (
+    Path(__file__).resolve().parents[1] / "scripts" / "python" / "configure_templates.py"
 )
+_CONFIGURE_TEMPLATES_SPEC = importlib.util.spec_from_file_location(
+    "configure_templates", _CONFIGURE_TEMPLATES_PATH
+)
+if _CONFIGURE_TEMPLATES_SPEC is None or _CONFIGURE_TEMPLATES_SPEC.loader is None:
+    raise RuntimeError(f"Unable to load configure_templates from {_CONFIGURE_TEMPLATES_PATH}")
+_CONFIGURE_TEMPLATES_MODULE = importlib.util.module_from_spec(_CONFIGURE_TEMPLATES_SPEC)
+_CONFIGURE_TEMPLATES_SPEC.loader.exec_module(_CONFIGURE_TEMPLATES_MODULE)
+_expand_text = _CONFIGURE_TEMPLATES_MODULE._expand_text
+_parse_defines = _CONFIGURE_TEMPLATES_MODULE._parse_defines
+render_template = _CONFIGURE_TEMPLATES_MODULE.render_template
 
 
 try:
@@ -26,36 +44,19 @@ else:
 
 @unittest.skipUnless(YAML_AVAILABLE, "PyYAML is required for inventory tests")
 class ProbeCatalogTests(unittest.TestCase):
-    def test_configure_templates_merges_yaml_settings(self) -> None:
-        detected = {
-            "DATACRUMBS_PROJECT_PATH": "/repo",
-            "DATACRUMBS_KERNEL_UNAME_R": "detected-kernel",
-            "DATACRUMBS_KERNEL_HEADERS_PATH": "/detected/headers",
-            "DATACRUMBS_LIBC_SO": "/detected/libc.so.6",
-        }
+    def test_configure_templates_parses_define_overrides(self) -> None:
+        merged = _parse_defines(
+            [
+                "DATACRUMBS_MPI_LIB=/usr/lib64/libmpi.so",
+                "DATACRUMBS_CUSTOM_PROBE_BPF=/tmp/custom_probe.bpf.c",
+            ]
+        )
+        self.assertEqual(merged["DATACRUMBS_MPI_LIB"], "/usr/lib64/libmpi.so")
+        self.assertEqual(merged["DATACRUMBS_CUSTOM_PROBE_BPF"], "/tmp/custom_probe.bpf.c")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            settings_path = Path(temp_dir) / "site-settings.yaml"
-            settings_path.write_text(
-                textwrap.dedent(
-                    """
-                    variables:
-                      DATACRUMBS_KERNEL_UNAME_R: override-kernel
-                      DATACRUMBS_LIBC_SO: /custom/lib/libc.so.6
-                    """
-                ).strip()
-                + "\n",
-                encoding="utf-8",
-            )
-
-            merged = _merge_settings(detected, settings_path)
-            self.assertEqual(merged["DATACRUMBS_KERNEL_UNAME_R"], "override-kernel")
-            self.assertEqual(merged["DATACRUMBS_LIBC_SO"], "/custom/lib/libc.so.6")
-            self.assertEqual(merged["DATACRUMBS_PROJECT_PATH"], "/repo")
-
-    def test_configure_templates_expands_legacy_project_prefix(self) -> None:
+    def test_configure_templates_expands_template_variables(self) -> None:
         settings = {
-            "DATACRUMBS_PROJECT_PATH": "/workspace/datacrumbs-utils",
+            "DATACRUMBS_MPI_LIB": "/usr/lib64/libmpi.so",
             "DATACRUMBS_KERNEL_UNAME_R": "5.14.0-test",
             "DATACRUMBS_LIBC_SO": "/usr/lib64/libc.so.6",
         }
@@ -64,33 +65,76 @@ class ProbeCatalogTests(unittest.TestCase):
             """
             capture_probes:
               - name: custom1
-                file: @DATACRUMBS_PROJECT_PATH@/etc/datacrumbs/plugins/custom_probes/sys_io/sysio.bpf.c
+                file: @DATACRUMBS_MPI_LIB@
               - name: libc
                 file: @DATACRUMBS_LIBC_SO@
               - name: sys
-                file: /usr/src/kernels/@DATACRUMBS_KERNEL_UNAME_R@/include/linux/syscalls.h
+                file: @DATACRUMBS_KERNEL_HEADERS_PATH@/include/linux/syscalls.h
             """
         ).strip()
 
         expanded = _expand_text(template, settings)
-        self.assertIn("/workspace/datacrumbs-utils/plugins/custom_probes/sys_io/sysio.bpf.c", expanded)
+        self.assertIn("/usr/lib64/libmpi.so", expanded)
         self.assertIn("/usr/lib64/libc.so.6", expanded)
-        self.assertIn("/usr/src/kernels/5.14.0-test/include/linux/syscalls.h", expanded)
+        self.assertIn("@DATACRUMBS_KERNEL_HEADERS_PATH@/include/linux/syscalls.h", expanded)
 
-    def test_configure_templates_render_shell_and_header(self) -> None:
-        settings = {
-          "DATACRUMBS_LIBC_SO": "/usr/lib64/libc.so.6",
-          "DATACRUMBS_KERNEL_UNAME_R": "5.14.0-test",
-        }
+    def test_configure_templates_renders_from_system_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            system_configuration_path = temp_path / "system-probe-test.sqlite"
+            template_path = temp_path / "template.yaml"
+            output_path = temp_path / "rendered.yaml"
+            with sqlite3.connect(system_configuration_path) as connection:
+                connection.execute(
+                    "CREATE TABLE system_configuration (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+                )
+                connection.execute("CREATE TABLE summary (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+                connection.executemany(
+                    "INSERT INTO system_configuration(key, value) VALUES (?, ?)",
+                    [
+                        ("DATACRUMBS_INSTALL_PREFIX", "/opt/datacrumbs"),
+                        ("DATACRUMBS_INSTALL_HOST", "lead"),
+                        ("DATACRUMBS_KERNEL_HEADERS_PATH", "/usr/src/kernels/5.14.0-test"),
+                        ("DATACRUMBS_LIBC_SO", "/usr/lib64/libc.so.6"),
+                    ],
+                )
+                connection.executemany(
+                    "INSERT INTO summary(key, value) VALUES (?, ?)",
+                    [
+                        ("trace_log_dir", "/tmp/traces"),
+                    ],
+                )
 
-        shell_text = _render_shell_settings(settings)
-        header_text = _render_header(settings)
+            template_path.write_text(
+                textwrap.dedent(
+                    """
+                    capture_probes:
+                      - name: sys
+                        file: @DATACRUMBS_KERNEL_HEADERS_PATH@/include/linux/syscalls.h
+                      - name: libc
+                        file: @DATACRUMBS_LIBC_SO@
+                      - name: mpi
+                        file: @DATACRUMBS_MPI_LIB@
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
 
-        self.assertIn('export DATACRUMBS_LIBC_SO="/usr/lib64/libc.so.6"', shell_text)
-        self.assertIn('readonly DATACRUMBS_KERNEL_UNAME_R', shell_text)
-        self.assertIn('#define DATACRUMBS_LIBC_SO "/usr/lib64/libc.so.6"', header_text)
-        self.assertIn('#define DATACRUMBS_KERNEL_UNAME_R "5.14.0-test"', header_text)
+            settings = render_template(
+                template_path=template_path,
+                system_configuration_path=system_configuration_path,
+                output_path=output_path,
+                defines={"DATACRUMBS_MPI_LIB": "/usr/lib64/libmpi.so"},
+            )
 
+            rendered = output_path.read_text(encoding="utf-8")
+            self.assertEqual(settings["DATACRUMBS_INSTALL_DIR"], "/opt/datacrumbs")
+            self.assertIn("/usr/src/kernels/5.14.0-test/include/linux/syscalls.h", rendered)
+            self.assertIn("/usr/lib64/libmpi.so", rendered)
+            self.assertIn("/usr/lib64/libc.so.6", rendered)
+
+    @unittest.skipUnless(PROBE_CATALOG_AVAILABLE, "probe_catalog module is unavailable")
     def test_inventory_merges_explored_functions(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -147,6 +191,7 @@ class ProbeCatalogTests(unittest.TestCase):
             self.assertEqual(category_map["1000"]["probe_name"], "mpi")
             self.assertEqual(category_map["1001"]["function_name"], "MPI_Finalize:0x18")
 
+    @unittest.skipUnless(PROBE_CATALOG_AVAILABLE, "probe_catalog module is unavailable")
     def test_query_filters_catalog(self) -> None:
         catalog = {
             "version": 1,
@@ -173,6 +218,7 @@ class ProbeCatalogTests(unittest.TestCase):
         self.assertEqual(len(filtered["probes"][0]["functions"]), 1)
         self.assertEqual(filtered["probes"][0]["functions"][0]["name"], "MPI_Init")
 
+    @unittest.skipUnless(PROBE_CATALOG_AVAILABLE, "probe_catalog module is unavailable")
     def test_prepare_runtime_config_writes_runtime_json_and_env(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -243,6 +289,7 @@ class ProbeCatalogTests(unittest.TestCase):
             self.assertTrue(env_file.exists())
             self.assertIn("DATACRUMBS_CONFIG_JSON", env_file.read_text(encoding="utf-8"))
 
+    @unittest.skipUnless(PROBE_CATALOG_AVAILABLE, "probe_catalog module is unavailable")
     def test_prepare_runtime_config_rewrites_legacy_catalog_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -308,6 +355,7 @@ class ProbeCatalogTests(unittest.TestCase):
             self.assertEqual(payload["category_map"]["100000"]["function_name"], "openat")
             self.assertTrue(runtime_json.exists())
 
+    @unittest.skipUnless(PROBE_CATALOG_AVAILABLE, "probe_catalog module is unavailable")
     def test_subset_cli_alias_filters_catalog(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

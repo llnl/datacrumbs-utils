@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-export PYTHONPATH="@CMAKE_CURRENT_SOURCE_DIR@/src${PYTHONPATH:+:${PYTHONPATH}}"
-exec "@Python3_EXECUTABLE@" -m datacrumbs_utils.probe_catalog "$@"

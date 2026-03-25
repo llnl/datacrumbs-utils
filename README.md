@@ -11,19 +11,19 @@
 - `datacrumbs-utils`
   - builds `libdatacrumbs_client.so`
   - builds `datacrumbs_probe_configurator`
-  - installs user-facing wrappers such as `datacrumbs_wrap`, `datacrumbs_track`, `datacrumbs_untrack`, `datacrumbs_run`, `datacrumbs_stop`, `datacrumbs_salloc`, `datacrumbs_sbatch`, and `datacrumbs_service_wrapper`
+  - installs user-facing wrappers such as `datacrumbs_wrap`, `datacrumbs_track`, `datacrumbs_untrack`, `datacrumbs_run`, `datacrumbs_stop`, `datacrumbs_salloc`, `datacrumbs_sbatch`, `datacrumbs_service_wrapper`, and the cluster setup helpers
   - owns tools, tests, formatting scripts, and Docker helper scripts
 
 ## Current flow
 
 1. Build and install `datacrumbs`.
-   `datacrumbs` bootstraps `datacrumbs-utils` into the same install prefix as part of its build.
-2. `datacrumbs` generates the install-time system configuration and probe secret if they are missing.
-3. Ensure the trusted signer on the login node is running:
+2. Build and install `datacrumbs-utils` into the same install prefix.
+3. `datacrumbs` generates the install-time system configuration and probe secret if they are missing.
+4. Ensure the trusted signer on the login node is running:
    `datacrumbs_sign_probes.service`
-4. Run `datacrumbs_probe_configurator` from `datacrumbs-utils` against a host YAML to generate a signed probes file.
-4. Start `datacrumbs` directly or through `datacrumbs@<run-id>.service`.
-5. Launch applications with `datacrumbs_wrap` or preload/track them with `datacrumbs_track`.
+5. Run `datacrumbs_probe_configurator` from `datacrumbs-utils` against a host YAML to generate a signed probes file.
+6. Start `datacrumbs` directly or through `datacrumbs@<run-id>.service`.
+7. Launch applications with `datacrumbs_wrap` or preload/track them with `datacrumbs_track`.
 
 ## Important installed files
 
@@ -36,17 +36,37 @@
 - `bin/datacrumbs_salloc`
 - `bin/datacrumbs_sbatch`
 - `bin/datacrumbs_service_wrapper`
+- `bin/datacrumbs_deploy_services`
+- `bin/datacrumbs_deploy_scheduler_hooks`
+- `bin/datacrumbs_install_flux_plugin`
+- `bin/datacrumbs_cluster_setup`
+- `bin/datacrumbs_configure_template`
+- `bin/datacrumbs_sqlite_extract`
 - `lib/libdatacrumbs_client.so` or `lib64/libdatacrumbs_client.so`
-- `etc/datacrumbs/configs/<host>.yaml`
-- `etc/datacrumbs/configs/project.env.local`
+- `docs/configs/<template>.yaml`
+- `docs/systems/`
 
 ## Probe generation
 
-Generate a signed probes file from an installed host config:
+Render a documented YAML template into a concrete host config:
+
+```bash
+datacrumbs_configure_template \
+  /path/to/datacrumbs-utils/docs/configs/docker.yaml \
+  --define DATACRUMBS_CUSTOM_PROBE_BPF=/path/to/custom_probe.bpf.c \
+  --define DATACRUMBS_CUSTOM_PROBE_DEFINITION=/path/to/probes.json \
+  --define DATACRUMBS_CUSTOM_PROBE_PROCESS_HEADER=/path/to/custom_probe_process.h \
+  /tmp/datacrumbs-host.yaml
+```
+
+`datacrumbs_configure_template` always uses the installed `datacrumbs`
+`system-probe-*.sqlite` detected from `DATACRUMBS_INSTALL_DIR`.
+
+Then generate a signed probes file from that rendered host config:
 
 ```bash
 <install-prefix>/bin/datacrumbs_probe_configurator \
-  <install-prefix>/etc/datacrumbs/configs/<host>.yaml \
+  /tmp/datacrumbs-host.yaml \
   /path/to/probes.json.gz
 ```
 
@@ -83,10 +103,37 @@ datacrumbs_service_wrapper start <job-id> <user> <probe-file>
 datacrumbs_service_wrapper stop <job-id> <user> <probe-file>
 ```
 
+Cluster deployment from the head node is staged with:
+
+```bash
+datacrumbs_cluster_setup --stage services --node-list "node[1-4]"
+datacrumbs_cluster_setup --stage scheduler-hooks --node-list "node[1-4]" --scheduler FLUX
+datacrumbs_cluster_setup --stage flux-plugin
+datacrumbs_cluster_setup --stage all --node-list "node[1-4]" --scheduler FLUX
+```
+
+Cluster teardown uses the same stages with `--unsetup`:
+
+```bash
+datacrumbs_cluster_setup --stage all --node-list "node[1-4]" --scheduler FLUX --unsetup
+```
+
+Inspect the installed SQLite state directly:
+
+```bash
+datacrumbs_sqlite_extract \
+  --database <install-prefix>/share/datacrumbs/data/system-probe-<install-user>-<host>.sqlite \
+  --section system-configuration
+
+datacrumbs_sqlite_extract \
+  --database <install-prefix>/share/datacrumbs/data/probes-runtime-status-<install-user>-<host>.sqlite \
+  --section valid-probes
+```
+
 ## Build and test
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DCMAKE_PREFIX_PATH=<datacrumbs-install-prefix>
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```

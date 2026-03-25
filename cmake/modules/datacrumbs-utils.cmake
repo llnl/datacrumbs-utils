@@ -38,6 +38,7 @@ macro(include_dependencies)
   find_package(LLVM REQUIRED CONFIG COMPONENTS Clang)
   find_package(json-c REQUIRED)
   find_package(OpenSSL REQUIRED)
+  find_package(SQLite3 REQUIRED)
   find_package(ZLIB REQUIRED)
 
   # all validator
@@ -143,6 +144,13 @@ macro(include_dependencies)
     message(FATAL_ERROR "-- [${UPPER_PROJECT_NAME}] OpenSSL is needed for ${PROJECT_NAME} build")
   endif()
 
+  if(SQLite3_FOUND)
+    include_directories(${SQLite3_INCLUDE_DIRS})
+    set(DEPENDENCY_LIB ${DEPENDENCY_LIB} SQLite::SQLite3)
+  else()
+    message(FATAL_ERROR "-- [${UPPER_PROJECT_NAME}] SQLite3 is needed for ${PROJECT_NAME} build")
+  endif()
+
   if(ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
     get_filename_component(ZLIB_LIBRARY_DIRS "${ZLIB_LIBRARIES}/../" ABSOLUTE)
@@ -168,6 +176,7 @@ macro(include_dependencies)
     STATUS
       "             - Found json-c:${json-c_CONSIDERED_VERSIONS} at include:${json-c_INCLUDE_DIR} lib:${json-c_LIBRARY_DIR}"
   )
+  message(STATUS "             - Found sqlite3:${SQLite3_VERSION} at include:${SQLite3_INCLUDE_DIRS}")
   message(
     STATUS
       "             - Found zlib:${ZLIB_VERSION} at include:${ZLIB_INCLUDE_DIRS} lib:${ZLIB_LIBRARY_DIRS}"
@@ -223,18 +232,6 @@ macro(derive_configurations)
     set(BPFTOOL_EXECUTABLE "")
   endif()
 
-  if(NOT DATACRUMBS_SKIP_PROBE_EXPLORING)
-    set(ENABLE_PROBE_EXPLORER 1)
-  else()
-    set(ENABLE_PROBE_EXPLORER 0)
-  endif()
-
-  if(NOT DATACRUMBS_SKIP_PROBE_GENERATION)
-    set(ENABLE_PROBE_GENERATOR 1)
-  else()
-    set(ENABLE_PROBE_GENERATOR 0)
-  endif()
-
   if(DATACRUMBS_INCLUSION_PATH STREQUAL "NONE")
     set(DATACRUMBS_ENABLE_INCLUSION_PATH 0)
   else()
@@ -259,8 +256,6 @@ macro(derive_configurations)
   set(DATACRUMBS_VARS
       --user
       ${DATACRUMBS_USER}
-      --config_path
-      ${CMAKE_CONFIG_OUTPUT_DIRECTORY}
       --data_dir
       ${CMAKE_DATA_OUTPUT_DIRECTORY}
       --trace_log_dir
@@ -275,7 +270,6 @@ macro(derive_configurations)
     set(DATACRUMBS_VARS ${DATACRUMBS_VARS} --inclusion_path ${DATACRUMBS_INCLUSION_PATH})
   endif()
 
-  set(DATACRUMBS_CONFIG_PATH ${CMAKE_CONFIG_OUTPUT_DIRECTORY})
   set(DATACRUMBS_DATA_DIR ${CMAKE_DATA_OUTPUT_DIRECTORY})
   file(MAKE_DIRECTORY ${DATACRUMBS_LOG_DIR})
 
@@ -283,10 +277,6 @@ macro(derive_configurations)
     set(DATACRUMBS_ENABLE 1)
   else()
     set(DATACRUMBS_ENABLE 0)
-  endif()
-
-  if(NOT DEFINED DATACRUMBS_PROJECT_PATH OR DATACRUMBS_PROJECT_PATH STREQUAL "")
-    set(DATACRUMBS_PROJECT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
   endif()
 
   # Detect system kernel version: major, minor, patch
@@ -570,13 +560,13 @@ macro(load_build_variables)
   set(EXECUTABLE_OUTPUT_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
   if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY
-        ${CMAKE_BINARY_DIR}/${DATACRUMBS_LIBDIR}
+        ${CMAKE_BINARY_DIR}/${DATACRUMBS_UTILS_LIBDIR}
         CACHE PATH "Single Directory for all Libraries"
     )
   endif()
   if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
-        ${CMAKE_BINARY_DIR}/${DATACRUMBS_LIBDIR}
+        ${CMAKE_BINARY_DIR}/${DATACRUMBS_UTILS_LIBDIR}
         CACHE PATH "Single Directory for all static libraries."
     )
   endif()
@@ -618,7 +608,7 @@ macro(load_build_variables)
 
     set(DATACRUMBS_INSTALL_BINARYDIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})
     set(DATACRUMBS_INSTALL_SBINARYDIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SBINDIR})
-    set(DATACRUMBS_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+    set(DATACRUMBS_UTILS_LIBDIR ${CMAKE_INSTALL_LIBDIR})
     set(DATACRUMBS_INSTALL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
     set(DATACRUMBS_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
     set(DATACRUMBS_INSTALL_DOCDIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DOCDIR})

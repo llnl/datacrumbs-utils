@@ -2,7 +2,7 @@
 
 set -eu
 
-client_lib="@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@/libdatacrumbs_client.so"
+client_lib="@DATACRUMBS_INSTALL_LIB_DIR@/libdatacrumbs_client.so"
 wrap_cmd="@DATACRUMBS_INSTALL_BINARYDIR@/datacrumbs_wrap"
 tmp_dir="@CMAKE_CURRENT_BINARY_DIR@/tests/dd-preload"
 out_file="${tmp_dir}/dd.out"

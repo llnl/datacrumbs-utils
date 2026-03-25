@@ -1,10 +1,8 @@
 #! /usr/bin/env bash
 
-set -eo pipefail
 
 SCRIPT_DIR=@DATACRUMBS_INSTALL_BINARYDIR@
-SERVICE_COMMON_INSTALL=@DATACRUMBS_INSTALL_SBINARYDIR@/datacrumbs_service_common.sh
-SERVICE_COMMON_BUILD=@DATACRUMBS_PROJECT_PATH@/build/bin/datacrumbs_service_common.sh
+SERVICE_COMMON_INSTALL=@datacrumbs_INSTALL_SBINARYDIR@/datacrumbs_service_common.sh
 SERVICE_SCHEDULER_TYPE=@DATACRUMBS_SCHEDULER_TYPE@
 
 source "${SCRIPT_DIR}/datacrumbs_logging"
@@ -51,7 +49,6 @@ trap cleanup_wrapper_tmpdir EXIT
 install_flux_shim() {
 	cat >"${WRAPPER_TMPDIR}/flux" <<EOF
 #!/usr/bin/env bash
-set -eo pipefail
 if [[ "\$1" == "job" && "\$2" == "info" && "\$3" == "${JOB_ID}" && "\$4" == "jobspec" ]]; then
 	jq -n -c \
 		--arg enable "yes" \
@@ -70,7 +67,6 @@ EOF
 install_slurm_shim() {
 	cat >"${WRAPPER_TMPDIR}/scontrol" <<EOF
 #!/usr/bin/env bash
-set -eo pipefail
 if [[ "\$1" == "show" && "\$2" == "job" && "\$3" == "${JOB_ID}" ]]; then
 	comment_json=\$(jq -n -c \
 		--arg enable "yes" \
@@ -122,10 +118,8 @@ fi
 
 if [[ -f "${SERVICE_COMMON_INSTALL}" ]]; then
 	SERVICE_COMMON_SCRIPT="${SERVICE_COMMON_INSTALL}"
-elif [[ -f "${SERVICE_COMMON_BUILD}" ]]; then
-	SERVICE_COMMON_SCRIPT="${SERVICE_COMMON_BUILD}"
 else
-	error "Unable to find datacrumbs_service_common.sh in install or build tree"
+	error "Unable to find datacrumbs_service_common.sh in ${SERVICE_COMMON_INSTALL}"
 	exit 1
 fi
 
@@ -139,6 +133,6 @@ if source "${SERVICE_COMMON_SCRIPT}"; then
 		log_system "Stopping datacrumbs@${DATACRUMBS_SERVICE_RUN_ID}.service"
 		systemctl_cmd stop "datacrumbs@${DATACRUMBS_SERVICE_RUN_ID}.service"
 		wait_for_unit_inactive "datacrumbs@${DATACRUMBS_SERVICE_RUN_ID}.service"
-		rm -f "${DATACRUMBS_SERVICE_ENV_FILE}"
+		remove_service_env_file "${DATACRUMBS_SERVICE_ENV_FILE}"
 	fi
 fi

@@ -1,6 +1,5 @@
 #! /usr/bin/env bash
 
-set -eo pipefail
 
 log() {
 	if [[ "${QUIET:-0}" == "0" ]]; then
@@ -40,7 +39,7 @@ log_system() {
 
 log_user() {
 	if [[ "FLUX" == "@DATACRUMBS_SCHEDULER_TYPE@" ]]; then
-		flux job raise --severity=7 ${FLUX_JOB_ID} "[INFO $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
+		flux job raise --severity=7 ${FLUX_JOB_ID} -- "[INFO $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
 	elif [[ "@DATACRUMBS_SCHEDULER_TYPE@" == "SLURM" ]]; then
 		logger "[INFO $(date '+%Y-%m-%d %H:%M:%S') ${SLURM_JOB_ID}] $@"
 	else
@@ -50,7 +49,7 @@ log_user() {
 
 warn_user() {
 	if [[ "FLUX" == "@DATACRUMBS_SCHEDULER_TYPE@" ]]; then
-		flux job raise --severity=1 ${FLUX_JOB_ID} "[WARN $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
+		flux job raise --severity=1 ${FLUX_JOB_ID} -- "[WARN $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
 	elif [[ "@DATACRUMBS_SCHEDULER_TYPE@" == "SLURM" ]]; then
 		logger "[WARN $(date '+%Y-%m-%d %H:%M:%S') ${SLURM_JOB_ID}] $@"
 	else
@@ -60,7 +59,7 @@ warn_user() {
 
 error_user() {
 	if [[ "FLUX" == "@DATACRUMBS_SCHEDULER_TYPE@" ]]; then
-		flux job raise --severity=1 ${FLUX_JOB_ID} "[ERROR $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
+		flux job raise --severity=1 ${FLUX_JOB_ID} -- "[ERROR $(date '+%Y-%m-%d %H:%M:%S') ${FLUX_JOB_ID}] $@"
 	elif [[ "@DATACRUMBS_SCHEDULER_TYPE@" == "SLURM" ]]; then
 		logger "[ERROR $(date '+%Y-%m-%d %H:%M:%S') ${SLURM_JOB_ID}] $@"
 	else

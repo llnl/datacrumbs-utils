@@ -1,4 +1,4 @@
-#include <datacrumbs/explorer/probe_explorer.h>
+#include <datacrumbs/datacrumbs/utils/explorer/probe_explorer.h>
 
 int main(int argc, char** argv) {
   datacrumbs::ProbeExplorer explorer(argc, argv);

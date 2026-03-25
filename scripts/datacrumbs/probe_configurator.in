@@ -1,8 +1,7 @@
 #! /usr/bin/env bash
 
-set -euo pipefail
 
-SCRIPT_DIR="@CMAKE_RUNTIME_OUTPUT_DIRECTORY@"
+SCRIPT_DIR="@DATACRUMBS_INSTALL_BINARYDIR@"
 
 if [[ -f "$SCRIPT_DIR/datacrumbs_args" ]]; then
 	source "$SCRIPT_DIR/datacrumbs_args"
@@ -23,24 +22,20 @@ if [[ ! -f "${config_file}" ]]; then
 	exit 1
 fi
 
-config_dir="$(cd "$(dirname "${config_file}")" && pwd)"
-config_base="$(basename "${config_file}")"
-config_name="${config_base%.*}"
 output_path="${DC_PROBE_CONFIGURATOR_OUTPUT_FILE}"
 output_dir="$(dirname "${output_path}")"
 
 export DATACRUMBS_USER="${DATACRUMBS_USER:-$(id -un)}"
-source "@DATACRUMBS_BUILD_PROJECT_ENV_FILE@"
+source "${SCRIPT_DIR}/datacrumbs_setup"
 
 mkdir -p "${output_dir}"
 output_dir="$(cd "${output_dir}" && pwd)"
 output_path="${output_dir}/$(basename "${output_path}")"
-export LD_LIBRARY_PATH="@CMAKE_LIBRARY_OUTPUT_DIRECTORY@:@DEPENDENCY_LIBRARY_DIRS_COLON@:${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="${DATACRUMBS_UTILS_INSTALL_LIB_DIR}:${DATACRUMBS_INSTALL_LIB_DIR}:@DEPENDENCY_LIBRARY_DIRS_COLON@:${LD_LIBRARY_PATH:-}"
 
 cmd=(
-	"@DATACRUMBS_PROBE_CONFIGURATOR_BIN@"
-	"${config_name}"
-	"--config_path" "${config_dir}"
+	"@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_BINDIR@/datacrumbs_probe_configurator_exec"
+	"${config_file}"
 	"--data_dir" "${output_dir}"
 	"--probe_file_path" "${output_path}"
 	"--user" "${DATACRUMBS_USER}"
