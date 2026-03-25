@@ -436,7 +436,7 @@ set(DATACRUMBS_PROBE_CONFIGURATOR_SRC
 )
 add_executable(datacrumbs_probe_configurator ${DATACRUMBS_PROBE_CONFIGURATOR_SRC} ${DATACRUMBS_COMMON_SRC})
 set_target_properties(datacrumbs_probe_configurator PROPERTIES OUTPUT_NAME datacrumbs_probe_configurator_exec)
-target_link_libraries(datacrumbs_probe_configurator ${DEPENDENCY_LIB} yaml-cpp)
+target_link_libraries(datacrumbs_probe_configurator ${DEPENDENCY_LIB} yaml-cpp OpenSSL::Crypto)
 add_dependencies(datacrumbs_probe_configurator datacrumbs_client clean_all)
 install(TARGETS datacrumbs_probe_configurator RUNTIME DESTINATION "${DATACRUMBS_INSTALL_BINARYDIR}")
 
