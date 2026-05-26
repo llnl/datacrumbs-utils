@@ -96,6 +96,16 @@ def render_template(template_path: Path, output_path: Path,
             "datacrumbs_configure_template."
         )
 
+    # Detect file paths that collapsed to a bare root prefix because a path
+    # variable was empty (e.g. "" + "/include/..." → "/include/...").
+    bad_file_paths = re.findall(r"(?m)^\s*file:\s*(/(?:include|usr/include)/\S+)", expanded)
+    if bad_file_paths:
+        raise ValueError(
+            f"Template '{template_path}' produced invalid file paths (path variable was empty): "
+            + ", ".join(bad_file_paths)
+            + "\nEnsure DATACRUMBS_KERNEL_HEADERS_PATH (or similar) is set and non-empty."
+        )
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(expanded, encoding="utf-8")
     return settings
