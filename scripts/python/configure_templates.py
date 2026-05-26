@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,16 @@ def render_template(template_path: Path, output_path: Path,
 
     template_text = template_path.read_text(encoding="utf-8")
     expanded = _expand_text(template_text, settings)
+
+    remaining = re.findall(r"@[A-Za-z0-9_]+@", expanded)
+    if remaining:
+        unique = sorted(set(remaining))
+        raise ValueError(
+            f"Template '{template_path}' has unresolved placeholders: {', '.join(unique)}\n"
+            "Set the corresponding DATACRUMBS_* environment variables before calling "
+            "datacrumbs_configure_template."
+        )
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(expanded, encoding="utf-8")
     return settings
