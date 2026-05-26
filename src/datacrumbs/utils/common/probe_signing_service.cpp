@@ -1,6 +1,7 @@
 #include <datacrumbs/utils/common/probe_signing_service.h>
 #include <datacrumbs/datacrumbs_utils_config.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <json-c/json.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -134,16 +135,23 @@ bool request_probe_signature(const std::string& signing_payload, std::string* ch
     return false;
   }
 
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_port = htons(static_cast<uint16_t>(port));
-  if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
+  addrinfo hints{};
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  addrinfo* resolved = nullptr;
+  const std::string port_str = std::to_string(port);
+  const int gai_rc = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &resolved);
+  if (gai_rc != 0) {
     if (error != nullptr) {
-      *error = "invalid manager TCP host";
+      *error = std::string("failed to resolve manager TCP host: ") + gai_strerror(gai_rc);
     }
     close(client_fd);
     return false;
   }
+
+  sockaddr_in address{};
+  std::memcpy(&address, resolved->ai_addr, sizeof(address));
+  freeaddrinfo(resolved);
 
   if (connect(client_fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
     if (error != nullptr) {
