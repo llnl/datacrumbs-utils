@@ -86,6 +86,16 @@ std::string base_function_name(const std::string& function_name) {
   return pos == std::string::npos ? function_name : function_name.substr(0, pos);
 }
 
+std::string syscall_base_name(const std::string& function_name) {
+  std::string base = base_function_name(function_name);
+  if (base.rfind("__x64_sys_", 0) == 0) {
+    base = base.substr(10);
+  } else if (base.rfind("sys_", 0) == 0) {
+    base = base.substr(4);
+  }
+  return base;
+}
+
 bool is_char_pointer_type(const std::string& c_type) {
   return c_type.find("char *") != std::string::npos ||
          c_type.find("const char *") != std::string::npos;
@@ -1013,7 +1023,9 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
                 datacrumbs::Singleton<KSymCapture>::get_instance()->functions_;
             std::vector<std::string> valid_function_names;
             for (const auto& name : result.function_names) {
-              const std::string base = base_function_name(name);
+              const std::string base =
+                capture_probe->probe_type == ProbeType::SYSCALLS ? syscall_base_name(name)
+                                        : base_function_name(name);
               const bool found =
                   ksym_functions.count(base) ||
                   (capture_probe->probe_type == ProbeType::SYSCALLS &&
