@@ -1335,10 +1335,12 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
 
     probe->name = capture_probe->name;
 
-    // For syscall probes, strip "sys_" prefix
+    // For syscall probes, normalize to base syscall names expected by attach_ksyscall.
     if (capture_probe->probe_type == ProbeType::SYSCALLS) {
       for (auto& name : functionNames) {
-        if (name.rfind("sys_", 0) == 0) {
+        if (name.rfind("__x64_sys_", 0) == 0) {
+          name = name.substr(10);
+        } else if (name.rfind("sys_", 0) == 0) {
           name = name.substr(4);
         }
       }
