@@ -20,11 +20,11 @@ if [[ "${#DATACRUMBS_SERVICE_NODES[@]}" -eq 0 ]]; then
 	exit 1
 fi
 
-readonly DATACRUMBS_SIGNING_SERVICE_INSTALL_SCRIPT='
+readonly DATACRUMBS_MANAGER_SERVICE_INSTALL_SCRIPT='
 install -d /etc/systemd/system
-ln -sfn "__INSTALL_SYSTEMD_DIR__/datacrumbs_sign_probes.service" /etc/systemd/system/datacrumbs_sign_probes.service
+ln -sfn "__INSTALL_SYSTEMD_DIR__/datacrumbs_probe_manager.service" /etc/systemd/system/datacrumbs_probe_manager.service
 systemctl daemon-reload
-systemctl enable --now datacrumbs_sign_probes.service
+systemctl enable --now datacrumbs_probe_manager.service
 '
 
 readonly DATACRUMBS_RUNTIME_SERVICE_INSTALL_SCRIPT='
@@ -33,9 +33,9 @@ ln -sfn "__INSTALL_SYSTEMD_DIR__/datacrumbs@.service" /etc/systemd/system/datacr
 systemctl daemon-reload
 '
 
-readonly DATACRUMBS_SIGNING_SERVICE_UNINSTALL_SCRIPT='
-systemctl disable --now datacrumbs_sign_probes.service || true
-rm -f /etc/systemd/system/datacrumbs_sign_probes.service
+readonly DATACRUMBS_MANAGER_SERVICE_UNINSTALL_SCRIPT='
+systemctl disable --now datacrumbs_probe_manager.service || true
+rm -f /etc/systemd/system/datacrumbs_probe_manager.service
 systemctl daemon-reload
 '
 
@@ -46,10 +46,10 @@ systemctl daemon-reload
 '
 
 if [[ "${DATACRUMBS_DEPLOY_SERVICES_UNSETUP:-0}" == "1" ]]; then
-	log "Removing datacrumbs_sign_probes.service from the head node"
+	log "Removing datacrumbs_probe_manager.service from the head node"
 	run_local_sudo_script \
-		"remove datacrumbs_sign_probes.service" \
-		"${DATACRUMBS_SIGNING_SERVICE_UNINSTALL_SCRIPT}"
+		"remove datacrumbs_probe_manager.service" \
+		"${DATACRUMBS_MANAGER_SERVICE_UNINSTALL_SCRIPT}"
 
 	log "Removing datacrumbs@.service from the head node"
 	run_local_sudo_script \
@@ -63,10 +63,10 @@ if [[ "${DATACRUMBS_DEPLOY_SERVICES_UNSETUP:-0}" == "1" ]]; then
 		-- \
 		"${DATACRUMBS_SERVICE_NODES[@]}"
 else
-	log "Deploying datacrumbs_sign_probes.service on the head node"
+	log "Deploying datacrumbs_probe_manager.service on the head node"
 	run_local_sudo_script \
-		"deploy datacrumbs_sign_probes.service" \
-		"${DATACRUMBS_SIGNING_SERVICE_INSTALL_SCRIPT//__INSTALL_SYSTEMD_DIR__/${DATACRUMBS_INSTALL_SYSTEMD_DIR}}"
+		"deploy datacrumbs_probe_manager.service" \
+		"${DATACRUMBS_MANAGER_SERVICE_INSTALL_SCRIPT//__INSTALL_SYSTEMD_DIR__/${DATACRUMBS_INSTALL_SYSTEMD_DIR}}"
 
 	log "Deploying datacrumbs@.service on the head node"
 	run_local_sudo_script \

@@ -18,12 +18,12 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <regex>
-#include <sqlite3.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -91,28 +91,6 @@ std::shared_ptr<Probe> probe_from_json(json_object* probe_obj) {
 
 std::string runtime_event_key(const std::string& probe_name, const std::string& function_name) {
   return probe_name + "\n" + function_name;
-}
-
-std::unordered_map<std::string, std::string> load_sqlite_kv_table(sqlite3* db,
-                                                                  const char* table_name) {
-  std::unordered_map<std::string, std::string> values;
-  const std::string sql = std::string("SELECT key, value FROM ") + table_name + ";";
-  sqlite3_stmt* statement = nullptr;
-  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) {
-    return values;
-  }
-
-  while (sqlite3_step(statement) == SQLITE_ROW) {
-    const unsigned char* key = sqlite3_column_text(statement, 0);
-    const unsigned char* value = sqlite3_column_text(statement, 1);
-    if (!key || !value) {
-      continue;
-    }
-    values[reinterpret_cast<const char*>(key)] = reinterpret_cast<const char*>(value);
-  }
-
-  sqlite3_finalize(statement);
-  return values;
 }
 
 }  // namespace
@@ -664,39 +642,27 @@ void ConfigurationManager::load_category_map() {
 }
 
 void ConfigurationManager::load_runtime_system_configuration() {
-  sqlite3* db = nullptr;
-  if (sqlite3_open_v2(system_probe_path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) !=
-      SQLITE_OK) {
-    if (db != nullptr) {
-      sqlite3_close(db);
-    }
-    throw std::runtime_error("Failed to open system probe database: " + system_probe_path.string());
+  if (std::getenv("DATACRUMBS_USER") != nullptr) {
+    user = std::getenv("DATACRUMBS_USER");
+  }
+  if (std::getenv("DATACRUMBS_LOG_DIR") != nullptr) {
+    log_dir = std::getenv("DATACRUMBS_LOG_DIR");
+  }
+  if (std::getenv("DATACRUMBS_INSTALL_DATA_DIR") != nullptr) {
+    data_dir = std::getenv("DATACRUMBS_INSTALL_DATA_DIR");
+  }
+  if (std::getenv("DATACRUMBS_CONFIGURED_TRACE_DIR") != nullptr) {
+    trace_log_dir = std::getenv("DATACRUMBS_CONFIGURED_TRACE_DIR");
   }
 
-  const auto summary = load_sqlite_kv_table(db, "summary");
-  const auto system_configuration = load_sqlite_kv_table(db, "system_configuration");
-  sqlite3_close(db);
-
-  if (const auto it = summary.find("trace_log_dir"); it != summary.end() && !it->second.empty()) {
-    trace_log_dir = it->second;
+  if (trace_log_dir.empty()) {
+    trace_log_dir = DATACRUMBS_CONFIGURED_TRACE_DIR;
   }
-  if (const auto it = summary.find("user");
-      it != summary.end() && !it->second.empty() && std::getenv("DATACRUMBS_USER") == nullptr) {
-    user = it->second;
+  if (log_dir.empty()) {
+    log_dir = DATACRUMBS_LOG_DIR;
   }
-
-  if (const auto it = system_configuration.find("DATACRUMBS_LOG_DIR");
-      it != system_configuration.end() && !it->second.empty()) {
-    log_dir = it->second;
-  }
-  if (const auto it = system_configuration.find("DATACRUMBS_INSTALL_DATA_DIR");
-      it != system_configuration.end() && !it->second.empty()) {
-    data_dir = it->second;
-  }
-  if (const auto it = system_configuration.find("DATACRUMBS_USER");
-      it != system_configuration.end() && !it->second.empty() &&
-      std::getenv("DATACRUMBS_USER") == nullptr) {
-    user = it->second;
+  if (data_dir.empty()) {
+    data_dir = DATACRUMBS_INSTALL_DATA_DIR;
   }
 }
 

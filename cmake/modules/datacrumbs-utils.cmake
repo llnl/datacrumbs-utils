@@ -38,7 +38,6 @@ macro(include_dependencies)
   find_package(LLVM REQUIRED CONFIG COMPONENTS Clang)
   find_package(json-c REQUIRED)
   find_package(OpenSSL REQUIRED)
-  find_package(SQLite3 REQUIRED)
   find_package(ZLIB REQUIRED)
 
   # all validator
@@ -145,13 +144,6 @@ macro(include_dependencies)
     message(FATAL_ERROR "-- [${UPPER_PROJECT_NAME}] OpenSSL is needed for ${PROJECT_NAME} build")
   endif()
 
-  if(SQLite3_FOUND)
-    include_directories(${SQLite3_INCLUDE_DIRS})
-    set(DEPENDENCY_LIB ${DEPENDENCY_LIB} SQLite::SQLite3)
-  else()
-    message(FATAL_ERROR "-- [${UPPER_PROJECT_NAME}] SQLite3 is needed for ${PROJECT_NAME} build")
-  endif()
-
   if(ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
     get_filename_component(ZLIB_LIBRARY_DIRS "${ZLIB_LIBRARIES}/../" ABSOLUTE)
@@ -177,7 +169,6 @@ macro(include_dependencies)
     STATUS
       "             - Found json-c:${json-c_CONSIDERED_VERSIONS} at include:${json-c_INCLUDE_DIR} lib:${json-c_LIBRARY_DIR}"
   )
-  message(STATUS "             - Found sqlite3:${SQLite3_VERSION} at include:${SQLite3_INCLUDE_DIRS}")
   message(
     STATUS
       "             - Found zlib:${ZLIB_VERSION} at include:${ZLIB_INCLUDE_DIRS} lib:${ZLIB_LIBRARY_DIRS}"

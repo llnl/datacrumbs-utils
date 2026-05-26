@@ -1,6 +1,6 @@
 #pragma once
 // include first
-#include <datacrumbs/datacrumbs_config.h>
+#include <datacrumbs/datacrumbs_utils_config.h>
 // other headers
 #include <datacrumbs/common/data_structures.h>
 #include <datacrumbs/common/logging.h>

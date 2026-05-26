@@ -20,7 +20,6 @@
 
 namespace {
 
-#ifndef DATACRUMBS_DISABLE_PROBE_SIGNING
 std::string probe_signing_payload(json_object* summary, json_object* categories) {
   json_object* root = json_object_new_object();
   json_object_object_add(root, "summary", json_object_get(summary));
@@ -31,7 +30,6 @@ std::string probe_signing_payload(json_object* summary, json_object* categories)
   json_object_put(root);
   return result;
 }
-#endif
 
 const char* probe_type_to_string(datacrumbs::ProbeType type) {
   switch (type) {
@@ -1835,7 +1833,6 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
   json_object_object_add(root, "summary", summary);
   json_object_object_add(root, "categories", json_object_get(jarray));
 
-#ifndef DATACRUMBS_DISABLE_PROBE_SIGNING
   const std::string signing_payload = probe_signing_payload(summary, jarray);
   std::string checksum;
   std::string signing_error;
@@ -1844,7 +1841,7 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
   const bool signed_ok = datacrumbs::probe_signing_service::request_probe_signature(
       signing_payload, &checksum, &signing_error);
   if (!signed_ok) {
-    DC_LOG_ERROR("Failed to sign probes through datacrumbs_sign_probes service: %s",
+    DC_LOG_ERROR("Failed to sign probes through datacrumbs_probe_manager service: %s",
                  signing_error.c_str());
     json_object_put(root);
     json_object_put(jarray);
@@ -1855,10 +1852,6 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
   json_object_object_add(root, "checksum", json_object_new_string(checksum.c_str()));
   DC_LOG_INFO("Probe file signed successfully: %s",
               configManager_->probe_file_path.string().c_str());
-#else
-  DC_LOG_WARN("Probe signing is disabled. Writing unsigned probes file: %s",
-              configManager_->probe_file_path.c_str());
-#endif
 
   const char* signed_json = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY);
   const std::string signed_payload = signed_json != nullptr ? signed_json : "";
@@ -1866,11 +1859,7 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::writeProbesToJson() {
   if (!datacrumbs::probe_file::write_gzip_file(configManager_->probe_file_path, signed_payload)) {
     DC_LOG_ERROR("Failed to open file: %s", configManager_->probe_file_path.c_str());
   } else {
-#ifdef DATACRUMBS_DISABLE_PROBE_SIGNING
-    DC_LOG_INFO("Unsigned probe file written: %s", configManager_->probe_file_path.c_str());
-#else
     DC_LOG_INFO("Signed probe file written: %s", configManager_->probe_file_path.c_str());
-#endif
   }
 
   json_object_put(root);

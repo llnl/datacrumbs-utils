@@ -3,45 +3,34 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-import sqlite3
 from typing import Any
 
 
-def _load_system_configuration(path: Path) -> dict[str, str]:
-    with sqlite3.connect(path) as connection:
-        system_configuration = dict(
-            connection.execute("SELECT key, value FROM system_configuration").fetchall()
-        )
-        summary = dict(connection.execute("SELECT key, value FROM summary").fetchall())
-
-    variables = {str(key): _stringify(value) for key, value in system_configuration.items()}
+def _load_settings_from_environment() -> dict[str, str]:
+    variables = {
+        str(key): _stringify(value)
+        for key, value in os.environ.items()
+        if key.startswith("DATACRUMBS_")
+    }
 
     install_prefix = variables.get("DATACRUMBS_INSTALL_PREFIX", "")
-    if install_prefix:
+    if install_prefix and "DATACRUMBS_INSTALL_DIR" not in variables:
         variables["DATACRUMBS_INSTALL_DIR"] = install_prefix
 
     install_host = variables.get("DATACRUMBS_INSTALL_HOST", "")
-    if install_host:
+    if install_host and "DATACRUMBS_HOST" not in variables:
         variables["DATACRUMBS_HOST"] = install_host
 
-    trace_dir = summary.get("trace_log_dir")
-    if isinstance(trace_dir, str) and trace_dir:
-        variables["DATACRUMBS_CONFIGURED_TRACE_DIR"] = trace_dir
-
-    configured_log_dir = variables.get("DATACRUMBS_LOG_DIR", "")
-    if configured_log_dir:
-        variables["DATACRUMBS_CONFIGURED_LOG_DIR"] = configured_log_dir
-
     scheduler = variables.get("DATACRUMBS_JOB_SCHEDULER", "")
-    if scheduler:
+    if scheduler and "DATACRUMBS_SCHEDULER_TYPE" not in variables:
         variables["DATACRUMBS_SCHEDULER_TYPE"] = scheduler
 
     job_id_var = variables.get("DATACRUMBS_JOB_ID_VAR", "")
-    if job_id_var:
+    if job_id_var and "DATACRUMBS_SCHEDULER_JOBID_ENV_VAR" not in variables:
         variables["DATACRUMBS_SCHEDULER_JOBID_ENV_VAR"] = job_id_var
 
     inclusion_paths = variables.get("DATACRUMBS_INCLUSION_PATHS", "")
-    if inclusion_paths:
+    if inclusion_paths and "DATACRUMBS_INCLUSION_PATH" not in variables:
         variables["DATACRUMBS_INCLUSION_PATH"] = inclusion_paths
 
     return variables
@@ -65,20 +54,19 @@ def _parse_defines(items: list[str]) -> dict[str, str]:
     return defines
 
 
-def _discover_system_configuration() -> Path:
-    install_dir = os.environ.get("DATACRUMBS_INSTALL_DIR", "")
-    if not install_dir:
+def _validate_required_settings(settings: dict[str, str]) -> None:
+    required_keys = (
+        "DATACRUMBS_INSTALL_DIR",
+        "DATACRUMBS_INSTALL_CONFIGS_DIR",
+        "DATACRUMBS_INSTALL_DATA_DIR",
+        "DATACRUMBS_INSTALL_USER",
+        "DATACRUMBS_HOST",
+    )
+    missing = [key for key in required_keys if not settings.get(key)]
+    if missing:
         raise ValueError(
-            "DATACRUMBS_INSTALL_DIR is not set. Use the installed datacrumbs_configure_template wrapper."
+            "Missing required DATACRUMBS_* environment settings: " + ", ".join(missing)
         )
-
-    data_dir = Path(install_dir).resolve() / "share" / "datacrumbs" / "data"
-    matches = sorted(data_dir.glob("system-probe-*.sqlite"))
-    if not matches:
-        raise ValueError(f"No system-probe-*.sqlite found under {data_dir}")
-    if len(matches) > 1:
-        raise ValueError(f"Multiple system-probe-*.sqlite files found under {data_dir}")
-    return matches[0]
 
 
 def _expand_text(text: str, settings: dict[str, str]) -> str:
@@ -88,11 +76,12 @@ def _expand_text(text: str, settings: dict[str, str]) -> str:
     return expanded
 
 
-def render_template(template_path: Path, system_configuration_path: Path,
-                    output_path: Path, defines: dict[str, str] | None = None) -> dict[str, str]:
-    settings = _load_system_configuration(system_configuration_path)
+def render_template(template_path: Path, output_path: Path,
+                    defines: dict[str, str] | None = None) -> dict[str, str]:
+    settings = _load_settings_from_environment()
     if defines:
         settings.update(defines)
+    _validate_required_settings(settings)
 
     template_text = template_path.read_text(encoding="utf-8")
     expanded = _expand_text(template_text, settings)
@@ -103,7 +92,7 @@ def render_template(template_path: Path, system_configuration_path: Path,
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Render one datacrumbs-utils YAML template using the installed datacrumbs system configuration"
+        description="Render one datacrumbs-utils YAML template using DATACRUMBS_* environment settings"
     )
     parser.add_argument("template", help="Input YAML template path")
     parser.add_argument("output", help="Rendered output YAML path")
@@ -114,11 +103,9 @@ def main() -> int:
         help="Additional template variable in KEY=VALUE form; may be repeated",
     )
     args = parser.parse_args()
-    system_configuration_path = _discover_system_configuration()
 
     render_template(
         template_path=Path(args.template).resolve(),
-        system_configuration_path=system_configuration_path,
         output_path=Path(args.output).resolve(),
         defines=_parse_defines(args.define),
     )

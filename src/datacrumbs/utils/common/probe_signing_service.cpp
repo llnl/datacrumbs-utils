@@ -1,18 +1,21 @@
 #include <datacrumbs/utils/common/probe_signing_service.h>
-#include <datacrumbs/datacrumbs_config.h>
+#include <datacrumbs/datacrumbs_utils_config.h>
+#include <arpa/inet.h>
 #include <json-c/json.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <cstring>
-#include <filesystem>
 #include <string>
 
 namespace datacrumbs::probe_signing_service {
 
 namespace {
+
+constexpr const char* kRpcVersion = "2.0";
+constexpr const char* kSignMethod = "sign_probe_payload";
 
 std::string json_string_or_empty(json_object* root, const char* key) {
   json_object* value = nullptr;
@@ -62,7 +65,7 @@ bool read_response_payload(const std::string& response_payload, std::string* sig
   json_object* root = json_tokener_parse(response_payload.c_str());
   if (root == nullptr || json_object_get_type(root) != json_type_object) {
     if (error != nullptr) {
-      *error = "failed to parse signer response";
+      *error = "failed to parse manager response";
     }
     if (root != nullptr) {
       json_object_put(root);
@@ -70,30 +73,40 @@ bool read_response_payload(const std::string& response_payload, std::string* sig
     return false;
   }
 
-  json_object* ok_obj = nullptr;
-  if (!json_object_object_get_ex(root, "ok", &ok_obj) ||
-      json_object_get_type(ok_obj) != json_type_boolean) {
+  const std::string version = json_string_or_empty(root, "jsonrpc");
+  if (version != kRpcVersion) {
     if (error != nullptr) {
-      *error = "signer response missing status";
+      *error = "manager response missing jsonrpc version";
     }
     json_object_put(root);
     return false;
   }
 
-  const bool ok = json_object_get_boolean(ok_obj);
-  if (!ok) {
+  json_object* error_obj = nullptr;
+  if (json_object_object_get_ex(root, "error", &error_obj) && error_obj != nullptr &&
+      json_object_get_type(error_obj) == json_type_object) {
     if (error != nullptr) {
-      *error = json_string_or_empty(root, "error");
+      *error = json_string_or_empty(error_obj, "message");
       if (error->empty()) {
-        *error = "signer rejected request";
+        *error = "manager rejected request";
       }
     }
     json_object_put(root);
     return false;
   }
 
+  json_object* result_obj = nullptr;
+  if (!json_object_object_get_ex(root, "result", &result_obj) || result_obj == nullptr ||
+      json_object_get_type(result_obj) != json_type_object) {
+    if (error != nullptr) {
+      *error = "manager response missing result";
+    }
+    json_object_put(root);
+    return false;
+  }
+
   if (signed_payload != nullptr) {
-    *signed_payload = json_string_or_empty(root, "payload");
+    *signed_payload = json_string_or_empty(result_obj, "checksum");
   }
   json_object_put(root);
   return signed_payload != nullptr && !signed_payload->empty();
@@ -101,18 +114,19 @@ bool read_response_payload(const std::string& response_payload, std::string* sig
 
 }  // namespace
 
-std::filesystem::path socket_path() {
-  if (const char* env_path = std::getenv("DATACRUMBS_SIGN_PROBES_SOCKET_PATH");
-      env_path != nullptr && env_path[0] != '\0') {
-    return env_path;
-  }
-  return DATACRUMBS_SIGN_PROBES_SOCKET_PATH;
+std::string tcp_host() {
+  return DATACRUMBS_PROBE_MANAGER_TCP_HOST;
+}
+
+int tcp_port() {
+  return DATACRUMBS_PROBE_MANAGER_TCP_PORT;
 }
 
 bool request_probe_signature(const std::string& signing_payload, std::string* checksum,
                              std::string* error) {
-  const auto path = socket_path();
-  const int client_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  const std::string host = tcp_host();
+  const int port = tcp_port();
+  const int client_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (client_fd < 0) {
     if (error != nullptr) {
       *error = "failed to create client socket";
@@ -120,29 +134,32 @@ bool request_probe_signature(const std::string& signing_payload, std::string* ch
     return false;
   }
 
-  sockaddr_un address{};
-  address.sun_family = AF_UNIX;
-  const std::string path_string = path.string();
-  if (path_string.size() >= sizeof(address.sun_path)) {
+  sockaddr_in address{};
+  address.sin_family = AF_INET;
+  address.sin_port = htons(static_cast<uint16_t>(port));
+  if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
     if (error != nullptr) {
-      *error = "signer socket path is too long";
+      *error = "invalid manager TCP host";
     }
     close(client_fd);
     return false;
   }
-  std::strncpy(address.sun_path, path_string.c_str(), sizeof(address.sun_path) - 1);
 
   if (connect(client_fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
     if (error != nullptr) {
-      *error = "failed to connect to datacrumbs_sign_probes service";
+      *error = "failed to connect to datacrumbs_probe_manager service";
     }
     close(client_fd);
     return false;
   }
 
   json_object* request_root = json_object_new_object();
-  json_object_object_add(request_root, "signing_payload",
-                         json_object_new_string(signing_payload.c_str()));
+  json_object* params = json_object_new_object();
+  json_object_object_add(params, "signing_payload", json_object_new_string(signing_payload.c_str()));
+  json_object_object_add(request_root, "jsonrpc", json_object_new_string(kRpcVersion));
+  json_object_object_add(request_root, "id", json_object_new_string("1"));
+  json_object_object_add(request_root, "method", json_object_new_string(kSignMethod));
+  json_object_object_add(request_root, "params", params);
   const char* request_json = json_object_to_json_string_ext(request_root, JSON_C_TO_STRING_PLAIN);
   const std::string request_payload = request_json != nullptr ? request_json : "";
   json_object_put(request_root);
@@ -161,13 +178,13 @@ bool request_probe_signature(const std::string& signing_payload, std::string* ch
   close(client_fd);
   if (!ok) {
     if (error != nullptr) {
-      *error = "failed to read signer response";
+      *error = "failed to read manager response";
     }
     return false;
   }
   if (response_payload.empty()) {
     if (error != nullptr) {
-      *error = "signer service closed connection without a response";
+      *error = "manager service closed connection without a response";
     }
     return false;
   }

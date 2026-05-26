@@ -21,7 +21,7 @@
  */
 #include <datacrumbs/utils/client/library.h>
 #include <datacrumbs/common/logging.h>
-#include <datacrumbs/datacrumbs_config.h>
+#include <datacrumbs/datacrumbs_utils_config.h>
 
 /**
  * @brief Called when the library is loaded.
