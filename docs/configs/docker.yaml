@@ -2,6 +2,6 @@ capture_probes:
   - name: sys
     probe: syscalls
     type: header
-    file: /usr/include/linux/syscalls.h
+    file: @DATACRUMBS_KERNEL_HEADERS_PATH@/include/linux/syscalls.h
     # Keep CI fast by tracing a compact syscall set instead of all syscalls.
     regex: ^sys_(openat|openat2|read|write|close|mmap|munmap|futex)$
