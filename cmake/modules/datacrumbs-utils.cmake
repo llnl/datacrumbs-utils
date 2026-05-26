@@ -454,7 +454,8 @@ macro(find_system_details)
 
   # Detect kernel headers path if not set or empty
   if(NOT DEFINED DATACRUMBS_KERNEL_HEADERS_PATH OR DATACRUMBS_KERNEL_HEADERS_PATH STREQUAL "")
-    set(_kernel_headers_candidates "/usr/src/${DATACRUMBS_KERNEL_UNAME_R}"
+    set(_kernel_headers_candidates "/usr/src/linux-headers-${DATACRUMBS_KERNEL_UNAME_R}"
+                                   "/usr/src/${DATACRUMBS_KERNEL_UNAME_R}"
                                    "/usr/src/kernels/${DATACRUMBS_KERNEL_UNAME_R}"
     )
     set(DATACRUMBS_KERNEL_HEADERS_PATH "")
