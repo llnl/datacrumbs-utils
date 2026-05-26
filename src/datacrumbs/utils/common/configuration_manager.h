@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #ifndef DATACRUMBS_COMMON_CONFIGURATION_MANAGER_H__
 #define DATACRUMBS_COMMON_CONFIGURATION_MANAGER_H__
 
@@ -113,18 +116,38 @@ class ConfigurationManager {
    * is missing or invalid, logs an error and exits the program.
    *
    * @param argc Number of command-line arguments
-   * @param argv Array of command-line argument strings
+  * @param argv Array of command-line argument strings.
+  *        Example: ["datacrumbs_probe_configurator_exec", "/tmp/config.yaml", ...]
+  * @param load_capture_probes Whether capture probes should be loaded immediately.
+  *        Example: true for extractor CLI, false for deferred flows.
+  * @param print Whether to print resolved configuration to logs.
+  *        Example: true for diagnostics-friendly runs.
+  * @throws std::runtime_error or std::invalid_argument when configuration is invalid.
    */
   ConfigurationManager(int argc, char** argv, bool load_capture_probes = false, bool print = true);
+
+  /**
+  * @brief Constructor for runtime mode from an already generated probe file.
+  * @param runtime_probe_file Signed probe file path.
+  *        Example: "/tmp/datacrumbs-ci-probes.json.gz".
+  * @param print Whether to print resolved configuration to logs.
+  * @throws std::runtime_error when runtime configuration is invalid.
+  */
   ConfigurationManager(const std::filesystem::path& runtime_probe_file, bool print = true);
 
   ConfigurationManager() {
     // Default constructor for internal use
   }
 
-  // For debugging: prints all configuration values to the log
+  /**
+   * @brief Print all resolved configuration values to logs.
+   */
   void print_configurations();
 
+  /**
+   * @brief Lookup event id for a runtime probe/function pair.
+   * @return Event id if found, otherwise std::nullopt.
+   */
   std::optional<uint64_t> get_runtime_event_id(const std::string& probe_name,
                                                const std::string& function_name) const;
 
@@ -133,6 +156,7 @@ class ConfigurationManager {
    * @brief Derives configurations based on the provided command-line arguments.
    *
    * Sets up paths and other configurations based on the mode of operation.
+    * @throws std::runtime_error if required derived values cannot be formed.
    */
   void derive_configurations();
 
@@ -142,12 +166,26 @@ class ConfigurationManager {
    * Checks if all required configurations are set and valid. If any
    * configuration is invalid, logs an error and exits the program. This ensures
    * correct operation of the DataCrumbs library.
+   * @throws std::runtime_error when invariants are violated.
    */
   void validate_configurations();
 
-  // Loads the category map from the specified JSON file
+  /**
+   * @brief Load category/event map from JSON file.
+   * @throws std::runtime_error when category map file is invalid.
+   */
   void load_category_map();
+
+  /**
+   * @brief Load runtime system configuration overrides from sqlite.
+   * @throws std::runtime_error when critical runtime metadata is invalid.
+   */
   void load_runtime_system_configuration();
+
+  /**
+   * @brief Load and validate runtime probe payload.
+   * @throws std::runtime_error when payload cannot be parsed/verified.
+   */
   void load_runtime_probe_file();
 };
 
@@ -166,6 +204,7 @@ class ArgumentParser {
    * @brief Constructor that parses command-line arguments.
    * @param argc Number of command-line arguments
    * @param argv Array of command-line argument strings
+    *        Example: ["datacrumbs", "--config", "config.yaml", "--user", "runner"]
    * @throws std::invalid_argument if required arguments are missing or unknown
    * arguments are found
    */

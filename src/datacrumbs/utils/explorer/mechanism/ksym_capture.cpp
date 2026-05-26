@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 // ksym_capture.cpp
 // This file implements the Singleton specialization for KSymCapture.
 // It also sets up logging using the datacrumbs logging system.

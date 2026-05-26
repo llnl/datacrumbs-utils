@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #include <datacrumbs/utils/explorer/mechanism/elf_capture.h>
 
 namespace datacrumbs {

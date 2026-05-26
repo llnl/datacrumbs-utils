@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #pragma once
 // include first
 #include <datacrumbs/datacrumbs_utils_config.h>
@@ -26,35 +29,65 @@
 
 namespace datacrumbs {
 
-// ProbeExplorer class is responsible for extracting and writing probes
+/**
+ * @brief Extracts probe candidates, applies filtering/validation, and writes signed probe payloads.
+ */
 class ProbeExplorer {
  public:
-  // Constructor: Initializes ProbeExplorer with command-line arguments
+  /**
+   * @brief Construct a probe explorer from command-line context.
+   * @param argc CLI argument count.
+   * @param argv CLI argument vector.
+   * @param load_capture_probes Whether capture probes should be loaded from config immediately.
+   *        Example: `true` for probe generation flows, `false` for lightweight mode.
+   */
   ProbeExplorer(int argc, char** argv, bool load_capture_probes = false);
-  // Extracts exclusion mappings and check for invalid entries
-  // Returns a map of probe names to sets of function names to be excluded
+
+  /**
+   * @brief Load exclusion mappings and validate exclusion entries.
+   * @return Map of probe name -> set of function names to exclude.
+   */
   std::unordered_map<std::string, std::unordered_set<std::string>> Extract_Exclusions();
-  // Extracts probes from a given data source (dummy implementation)
-  // Returns a vector of shared pointers to Probe objects
+
+  /**
+   * @brief Extract probes from configured capture sources.
+   * @return Vector of probe definitions ready for serialization/signing.
+   */
   std::vector<std::shared_ptr<Probe>> extractProbes();
-  // Creates an exclusion file from the provided probes if the file does not
-  // exist
+
+  /**
+   * @brief Create an exclusion file template from extracted probes when missing.
+   * @param probes Probe set used to build exclusion-file structure.
+   */
   void create_exclusion_file(std::vector<std::shared_ptr<Probe>> probes);
-  // Writes extracted probes to a JSON file
-  // Returns a vector of shared pointers to Probe objects
+
+  /**
+   * @brief Write extracted probes to JSON, request signature, and persist final artifact.
+   * @return The probe vector that was written/signed.
+   */
   std::vector<std::shared_ptr<Probe>> writeProbesToJson();
 
-  // Writes the install-time system configuration artifact as a gzipped JSON
-  // file.
+  /**
+   * @brief Write install-time system configuration artifact as gzipped JSON.
+   * @return true on success, false on write/serialization failure.
+   */
   bool writeSystemProbeJson();
 
-  // Loads existing probes from a JSON file
+  /**
+   * @brief Load existing probes from a previously generated JSON file.
+   * @return Map of probe name -> probe object.
+   */
   std::unordered_map<std::string, std::shared_ptr<Probe>> loadExistingProbes();
 
-  bool has_invalid_probes_ = false;  // Flag to indicate if any invalid probes were found
+  /**
+   * @brief Indicates whether extraction/validation encountered invalid probe candidates.
+   */
+  bool has_invalid_probes_ = false;
 
  private:
-  // Configuration manager instance for managing configuration settings
+  /**
+   * @brief Configuration source for probe extraction and output paths.
+   */
   std::shared_ptr<ConfigurationManager> configManager_;
 };
 

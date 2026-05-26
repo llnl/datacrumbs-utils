@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #pragma once
 // include first
 #include <datacrumbs/datacrumbs_utils_config.h>
@@ -49,9 +52,10 @@ class KSymCapture {
     DC_LOG_TRACE("KSymCapture: End getFunctionsByRegex");
     return result;
   }
+  /// In-memory set of kernel text symbols loaded from kallsyms.
   std::unordered_set<std::string> functions_;
 
- private:  ///< List of function names loaded from kallsyms.
+ private:
   /**
    * @brief Loads function symbols from the specified kallsyms file.
    *        Only symbols of type 'T' or 't' are considered functions.

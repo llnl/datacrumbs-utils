@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #ifndef DATACRUMBS_UTILS_CONFIG_HPP
 #define DATACRUMBS_UTILS_CONFIG_HPP
 

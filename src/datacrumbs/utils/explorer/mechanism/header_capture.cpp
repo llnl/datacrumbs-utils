@@ -1,4 +1,7 @@
 
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #include <datacrumbs/utils/explorer/mechanism/header_capture.h>
 
 #include <algorithm>

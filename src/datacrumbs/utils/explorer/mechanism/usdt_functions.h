@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #pragma once
 // include first
 #include <datacrumbs/datacrumbs_utils_config.h>
@@ -7,19 +10,28 @@
 #include <string>
 #include <vector>
 
-// USDTFunctionExtractor extracts USDT (User-level Statically Defined Tracing)
-// function names for a given provider. Currently, only the "python" provider is
-// supported.
+/**
+ * @brief Extract USDT (User-level Statically Defined Tracing) function names
+ * for a provider.
+ *
+ * Currently, only the "python" provider has built-in function mapping.
+ */
 class USDTFunctionExtractor {
  public:
-  // Constructor: initializes the extractor with the given provider name.
+  /**
+  * @brief Constructor: initializes extractor with provider name.
+  * @param provider Provider identifier.
+  *        Example: "python".
+  */
   explicit USDTFunctionExtractor(const std::string& provider) : provider_(provider) {
     DC_LOG_TRACE("USDTFunctionExtractor constructed for provider: %s", provider.c_str());
   }
 
-  // Extracts function names for the specified provider.
-  // Returns a vector of function names if the provider is supported, otherwise
-  // returns an empty vector.
+  /**
+   * @brief Extract function names for the configured provider.
+   * @return Vector of function names when provider is supported;
+   *         empty vector for unsupported providers.
+   */
   std::vector<std::string> extractFunctionNames() const {
     DC_LOG_TRACE("extractFunctionNames() called for provider: %s", provider_.c_str());
     if (provider_ == "python") {
@@ -33,5 +45,6 @@ class USDTFunctionExtractor {
   }
 
  private:
-  std::string provider_;  // Name of the provider (e.g., "python")
+  /// Name of the provider (for example "python").
+  std::string provider_;
 };

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 #pragma once
 // include first
 #include <datacrumbs/datacrumbs_utils_config.h>
@@ -21,6 +24,7 @@ class HeaderFunctionExtractor {
   /**
    * @brief Constructs the extractor with the path to the header file.
    * @param headerPath Path to the header file to analyze.
+  *        Example: "/usr/src/linux-headers-6.8.0/include/linux/syscalls.h".
    */
   HeaderFunctionExtractor(const std::string& headerPath);
 
@@ -32,6 +36,7 @@ class HeaderFunctionExtractor {
   /**
    * @brief Extracts all function names from the header file.
    * @return Vector of function names as strings.
+    * @throws std::runtime_error when translation unit setup fails.
    */
   std::vector<std::string> extractFunctionNames();
 
@@ -39,13 +44,17 @@ class HeaderFunctionExtractor {
    * @brief Extracts per-function argument capture specifications from the
    * header file.
    * @return Map of function name to argument specification list.
+   * @throws std::runtime_error when parsing/AST traversal fails.
    */
   std::unordered_map<std::string, std::vector<ProbeArgCaptureSpec>> extractFunctionSignatures();
 
  private:
-  std::string headerPath_;  ///< Path to the header file.
-  CXIndex index_;           ///< libclang index object.
-  CXTranslationUnit tu_;    ///< libclang translation unit.
+  /// Path to the header file being parsed.
+  std::string headerPath_;
+  /// libclang index object.
+  CXIndex index_;
+  /// libclang translation unit.
+  CXTranslationUnit tu_;
 };
 
 }  // namespace datacrumbs

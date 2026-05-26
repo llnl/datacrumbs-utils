@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Owner: hariharandev1@llnl.gov
+
 /**
  * @file library.cpp
  * @brief Implementation of library initialization and finalization functions
