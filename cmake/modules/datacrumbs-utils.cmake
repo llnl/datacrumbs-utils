@@ -452,27 +452,18 @@ macro(find_system_details)
     )
   endif()
 
-  # Detect kernel headers path if not set or empty
-  if(NOT DEFINED DATACRUMBS_KERNEL_HEADERS_PATH OR DATACRUMBS_KERNEL_HEADERS_PATH STREQUAL "")
-    set(_kernel_headers_candidates "/usr/src/linux-headers-${DATACRUMBS_KERNEL_UNAME_R}"
-                                   "/usr/src/${DATACRUMBS_KERNEL_UNAME_R}"
-                                   "/usr/src/kernels/${DATACRUMBS_KERNEL_UNAME_R}"
-    )
+  # Do not re-detect kernel headers in utils. This value must be passed through
+  # from datacrumbs package exports (public config/header contract).
+  if(NOT DEFINED DATACRUMBS_KERNEL_HEADERS_PATH)
     set(DATACRUMBS_KERNEL_HEADERS_PATH "")
-
-    foreach(_candidate ${_kernel_headers_candidates})
-      if(EXISTS "${_candidate}")
-        set(DATACRUMBS_KERNEL_HEADERS_PATH "${_candidate}")
-        break()
-      endif()
-    endforeach()
-
-    if(DATACRUMBS_KERNEL_HEADERS_PATH STREQUAL "")
-      message(
-        WARNING
-          "[${UPPER_PROJECT_NAME}] Kernel headers not found for ${DATACRUMBS_UNAME_R} in /usr/src or /usr/src/kernels."
-      )
-    endif()
+  endif()
+  if(DATACRUMBS_KERNEL_HEADERS_PATH STREQUAL "")
+    message(
+      FATAL_ERROR
+        "[${UPPER_PROJECT_NAME}] DATACRUMBS_KERNEL_HEADERS_PATH is empty; expected pass-through from datacrumbs package export."
+    )
+  else()
+    message(STATUS "             - Using exported kernel headers path: ${DATACRUMBS_KERNEL_HEADERS_PATH}")
   endif()
 
   # Normalize architecture names

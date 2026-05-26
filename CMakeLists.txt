@@ -79,6 +79,25 @@ foreach(_dc_key IN LISTS _DATACRUMBS_EXPORTED_KEYS)
     set(DATACRUMBS_${_dc_key} "${datacrumbs_${_dc_key}}")
   endif()
 endforeach()
+
+# Pass-through safeguard: if package export is empty, read the value from
+# datacrumbs public config header instead of re-detecting locally.
+if((NOT DEFINED DATACRUMBS_KERNEL_HEADERS_PATH OR "${DATACRUMBS_KERNEL_HEADERS_PATH}" STREQUAL "")
+   AND DEFINED datacrumbs_INSTALL_INCLUDE_DIR
+)
+  set(_datacrumbs_public_config_header
+      "${datacrumbs_INSTALL_INCLUDE_DIR}/datacrumbs/datacrumbs_config.h")
+  if(EXISTS "${_datacrumbs_public_config_header}")
+    file(READ "${_datacrumbs_public_config_header}" _datacrumbs_public_config_contents)
+    string(REGEX MATCH
+           "#define[ \t]+DATACRUMBS_KERNEL_HEADERS_PATH[ \t]+\"([^\"]*)\""
+           _datacrumbs_kernel_headers_define
+           "${_datacrumbs_public_config_contents}")
+    if(_datacrumbs_kernel_headers_define)
+      set(DATACRUMBS_KERNEL_HEADERS_PATH "${CMAKE_MATCH_1}")
+    endif()
+  endif()
+endif()
 message(STATUS "[${UPPER_PROJECT_NAME}] Loaded datacrumbs configuration from package header exports")
 
 macro(datacrumbs_set_default variable_name default_value)
