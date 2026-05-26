@@ -1006,13 +1006,20 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
               result.discovered_function_signatures[function_name] = std::move(arg_specs);
             }
           }
-          if (capture_probe->probe_type == ProbeType::KPROBE) {
-            DC_LOG_DEBUG("KPROBE: Extracting symbols from header...");
+          if (capture_probe->probe_type == ProbeType::KPROBE ||
+              capture_probe->probe_type == ProbeType::SYSCALLS) {
+            DC_LOG_DEBUG("Filtering header symbols against /proc/kallsyms...");
             const auto& ksym_functions =
                 datacrumbs::Singleton<KSymCapture>::get_instance()->functions_;
             std::vector<std::string> valid_function_names;
             for (const auto& name : result.function_names) {
-              if (ksym_functions.find(name) != ksym_functions.end()) {
+              const std::string base = base_function_name(name);
+              const bool found =
+                  ksym_functions.count(base) ||
+                  (capture_probe->probe_type == ProbeType::SYSCALLS &&
+                   (ksym_functions.count("sys_" + base) ||
+                    ksym_functions.count("__x64_sys_" + base)));
+              if (found) {
                 valid_function_names.push_back(name);
               } else {
                 DC_LOG_WARN("Function '%s' not found in KSymCapture functions, skipping.",
