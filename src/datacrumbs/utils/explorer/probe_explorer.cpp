@@ -1498,6 +1498,8 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
     DC_LOG_INFO("Valid probe extracted: %s", probe->name.c_str());
     probes.push_back(probe);
     ++extracted_probe_count;
+    DC_LOG_INFO("[ProbeExplorer] Category '%s' resolved to %zu probes/functions",
+                probe->name.c_str(), probe->functions.size());
   };
 
   while (completed_extractions < total_pending_extractions) {
@@ -1541,6 +1543,16 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
   if (has_invalid_probes_) {
     DC_LOG_ERROR("One or more probes failed validation. Please check the logs above.");
   }
+
+  size_t total_discovered_functions = 0;
+  for (const auto& probe : probes) {
+    total_discovered_functions += probe->functions.size();
+  }
+  DC_LOG_INFO(
+      "[ProbeExplorer] Overall discovery summary: categories=%zu (reused=%zu, extracted=%zu), "
+      "total probes/functions=%zu",
+      probes.size(), reused_probe_count, extracted_probe_count, total_discovered_functions);
+
   const size_t supported_runtime_function_count = count_supported_runtime_functions(probes);
   if (supported_runtime_function_count > DATACRUMBS_MAX_RUNTIME_FUNCTIONS) {
     DC_LOG_ERROR(

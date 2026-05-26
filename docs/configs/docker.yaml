@@ -2,4 +2,5 @@ capture_probes:
   - name: sys
     probe: syscalls
     type: ksym
-    regex: sys_.*
+    # Keep CI fast by tracing a compact syscall set instead of all syscalls.
+    regex: ^(sys_|__x64_sys_)(openat|openat2|read|write|close|mmap|munmap|futex)$
