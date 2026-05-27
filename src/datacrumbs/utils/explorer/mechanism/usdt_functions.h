@@ -19,10 +19,10 @@
 class USDTFunctionExtractor {
  public:
   /**
-  * @brief Constructor: initializes extractor with provider name.
-  * @param provider Provider identifier.
-  *        Example: "python".
-  */
+   * @brief Constructor: initializes extractor with provider name.
+   * @param provider Provider identifier.
+   *        Example: "python".
+   */
   explicit USDTFunctionExtractor(const std::string& provider) : provider_(provider) {
     DC_LOG_TRACE("USDTFunctionExtractor constructed for provider: %s", provider.c_str());
   }

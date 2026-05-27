@@ -1026,14 +1026,13 @@ std::vector<std::shared_ptr<Probe>> ProbeExplorer::extractProbes() {
                 datacrumbs::Singleton<KSymCapture>::get_instance()->functions_;
             std::vector<std::string> valid_function_names;
             for (const auto& name : result.function_names) {
-              const std::string base =
-                capture_probe->probe_type == ProbeType::SYSCALLS ? syscall_base_name(name)
-                                        : base_function_name(name);
+              const std::string base = capture_probe->probe_type == ProbeType::SYSCALLS
+                                           ? syscall_base_name(name)
+                                           : base_function_name(name);
               const bool found =
-                  ksym_functions.count(base) ||
-                  (capture_probe->probe_type == ProbeType::SYSCALLS &&
-                   (ksym_functions.count("sys_" + base) ||
-                    ksym_functions.count("__x64_sys_" + base)));
+                  ksym_functions.count(base) || (capture_probe->probe_type == ProbeType::SYSCALLS &&
+                                                 (ksym_functions.count("sys_" + base) ||
+                                                  ksym_functions.count("__x64_sys_" + base)));
               if (found) {
                 valid_function_names.push_back(name);
               } else {

@@ -116,23 +116,23 @@ class ConfigurationManager {
    * is missing or invalid, logs an error and exits the program.
    *
    * @param argc Number of command-line arguments
-  * @param argv Array of command-line argument strings.
-  *        Example: ["datacrumbs_probe_configurator_exec", "/tmp/config.yaml", ...]
-  * @param load_capture_probes Whether capture probes should be loaded immediately.
-  *        Example: true for extractor CLI, false for deferred flows.
-  * @param print Whether to print resolved configuration to logs.
-  *        Example: true for diagnostics-friendly runs.
-  * @throws std::runtime_error or std::invalid_argument when configuration is invalid.
+   * @param argv Array of command-line argument strings.
+   *        Example: ["datacrumbs_probe_configurator_exec", "/tmp/config.yaml", ...]
+   * @param load_capture_probes Whether capture probes should be loaded immediately.
+   *        Example: true for extractor CLI, false for deferred flows.
+   * @param print Whether to print resolved configuration to logs.
+   *        Example: true for diagnostics-friendly runs.
+   * @throws std::runtime_error or std::invalid_argument when configuration is invalid.
    */
   ConfigurationManager(int argc, char** argv, bool load_capture_probes = false, bool print = true);
 
   /**
-  * @brief Constructor for runtime mode from an already generated probe file.
-  * @param runtime_probe_file Signed probe file path.
-  *        Example: "/tmp/datacrumbs-ci-probes.json.gz".
-  * @param print Whether to print resolved configuration to logs.
-  * @throws std::runtime_error when runtime configuration is invalid.
-  */
+   * @brief Constructor for runtime mode from an already generated probe file.
+   * @param runtime_probe_file Signed probe file path.
+   *        Example: "/tmp/datacrumbs-ci-probes.json.gz".
+   * @param print Whether to print resolved configuration to logs.
+   * @throws std::runtime_error when runtime configuration is invalid.
+   */
   ConfigurationManager(const std::filesystem::path& runtime_probe_file, bool print = true);
 
   ConfigurationManager() {
@@ -156,7 +156,7 @@ class ConfigurationManager {
    * @brief Derives configurations based on the provided command-line arguments.
    *
    * Sets up paths and other configurations based on the mode of operation.
-    * @throws std::runtime_error if required derived values cannot be formed.
+   * @throws std::runtime_error if required derived values cannot be formed.
    */
   void derive_configurations();
 
@@ -204,7 +204,7 @@ class ArgumentParser {
    * @brief Constructor that parses command-line arguments.
    * @param argc Number of command-line arguments
    * @param argv Array of command-line argument strings
-    *        Example: ["datacrumbs", "--config", "config.yaml", "--user", "runner"]
+   *        Example: ["datacrumbs", "--config", "config.yaml", "--user", "runner"]
    * @throws std::invalid_argument if required arguments are missing or unknown
    * arguments are found
    */

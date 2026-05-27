@@ -24,7 +24,7 @@ class HeaderFunctionExtractor {
   /**
    * @brief Constructs the extractor with the path to the header file.
    * @param headerPath Path to the header file to analyze.
-  *        Example: "/usr/src/linux-headers-6.8.0/include/linux/syscalls.h".
+   *        Example: "/usr/src/linux-headers-6.8.0/include/linux/syscalls.h".
    */
   HeaderFunctionExtractor(const std::string& headerPath);
 
@@ -36,7 +36,7 @@ class HeaderFunctionExtractor {
   /**
    * @brief Extracts all function names from the header file.
    * @return Vector of function names as strings.
-    * @throws std::runtime_error when translation unit setup fails.
+   * @throws std::runtime_error when translation unit setup fails.
    */
   std::vector<std::string> extractFunctionNames();
 

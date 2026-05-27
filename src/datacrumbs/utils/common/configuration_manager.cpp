@@ -33,12 +33,12 @@
 /**
  * Internal headers
  */
-#include <datacrumbs/utils/common/configuration_manager.h>
 #include <datacrumbs/common/enumerations.h>
 #include <datacrumbs/common/logging.h>  // <-- Added logging header
 #include <datacrumbs/common/probe_file.h>
 #include <datacrumbs/common/singleton.h>
 #include <datacrumbs/common/utils.h>
+#include <datacrumbs/utils/common/configuration_manager.h>
 /**
  * External headers
  */
@@ -94,6 +94,18 @@ std::shared_ptr<Probe> probe_from_json(json_object* probe_obj) {
 
 std::string runtime_event_key(const std::string& probe_name, const std::string& function_name) {
   return probe_name + "\n" + function_name;
+}
+
+std::filesystem::path absolute_normalized_path(const std::filesystem::path& input_path) {
+  if (input_path.empty()) {
+    return input_path;
+  }
+  std::error_code ec;
+  const std::filesystem::path absolute_path = std::filesystem::absolute(input_path, ec);
+  if (ec) {
+    return input_path.lexically_normal();
+  }
+  return absolute_path.lexically_normal();
 }
 
 }  // namespace
@@ -223,7 +235,7 @@ ConfigurationManager::ConfigurationManager(int argc, char** argv, bool load_capt
   }
   DC_LOG_TRACE("[ConfigurationManager] Initializing with arguments...");
   ArgumentParser parser(argc, argv);
-  this->config_file_path = parser.config_file_path;
+  this->config_file_path = absolute_normalized_path(parser.config_file_path);
   YAML::Node config;
   DC_LOG_DEBUG("[ConfigurationManager] Loading configuration file: %s",
                config_file_path.string().c_str());
@@ -403,18 +415,18 @@ ConfigurationManager::ConfigurationManager(int argc, char** argv, bool load_capt
     }
     // Override config path if provided as argument
     if (parser.data_dir) {
-      this->data_dir = *parser.data_dir;
+      this->data_dir = absolute_normalized_path(*parser.data_dir);
       DC_LOG_DEBUG("[ConfigurationManager] Data directory overridden by argument: %s",
                    this->data_dir.string().c_str());
     }
     if (parser.probe_file_path) {
-      this->explicit_probe_file_path = *parser.probe_file_path;
+      this->explicit_probe_file_path = absolute_normalized_path(*parser.probe_file_path);
       DC_LOG_DEBUG("[ConfigurationManager] Probe file path overridden by argument: %s",
                    this->explicit_probe_file_path.string().c_str());
     }
     // Override trace log dir if provided as argument
     if (parser.trace_log_dir) {
-      this->trace_log_dir = *parser.trace_log_dir;
+      this->trace_log_dir = absolute_normalized_path(*parser.trace_log_dir);
       DC_LOG_DEBUG("[ConfigurationManager] Trace log dir overridden by argument: %s",
                    parser.trace_log_dir->c_str());
     }
@@ -468,12 +480,12 @@ ConfigurationManager::ConfigurationManager(const std::filesystem::path& runtime_
       log_dir(DATACRUMBS_LOG_DIR),
       run_id(env_or_default("DATACRUMBS_SERVER_RUN_ID", runtime_timestamp())),
       disable_mpi(true) {
-  probe_file_path = runtime_probe_file;
+  probe_file_path = absolute_normalized_path(runtime_probe_file);
   system_probe_path = DATACRUMBS_SYSTEM_PROBE_FILE;
   load_runtime_system_configuration();
   derive_configurations();
   system_probe_path = DATACRUMBS_SYSTEM_PROBE_FILE;
-  probe_file_path = runtime_probe_file;
+  probe_file_path = absolute_normalized_path(runtime_probe_file);
   load_runtime_probe_file();
   validate_configurations();
   if (print) {
@@ -548,6 +560,7 @@ void ConfigurationManager::derive_configurations() {
 
   std::string trace_file_name = "trace-" + generated_file_suffix + ".pfw.gz";
   this->trace_file_path = this->trace_log_dir / trace_file_name;
+  this->trace_file_path = absolute_normalized_path(this->trace_file_path);
   DC_LOG_DEBUG("[ConfigurationManager] Trace file path: %s",
                this->trace_file_path.string().c_str());
 
@@ -559,6 +572,7 @@ void ConfigurationManager::derive_configurations() {
   if (!this->explicit_probe_file_path.empty()) {
     this->probe_file_path = this->explicit_probe_file_path;
   }
+  this->probe_file_path = absolute_normalized_path(this->probe_file_path);
   DC_LOG_DEBUG("[ConfigurationManager] Probe file path: %s",
                this->probe_file_path.string().c_str());
 
@@ -566,6 +580,7 @@ void ConfigurationManager::derive_configurations() {
   // probes-exclusion-DATACRUMBS_INSTALL_USER-host.json
   std::string probe_exclusion_file_name = "probes-exclusion-" + lookup_file_suffix + ".json";
   this->probe_exclusion_file_path = this->data_dir / probe_exclusion_file_name;
+  this->probe_exclusion_file_path = absolute_normalized_path(this->probe_exclusion_file_path);
   DC_LOG_DEBUG("[ConfigurationManager] Probe exclusion file path: %s",
                this->probe_exclusion_file_path.string().c_str());
 
@@ -573,6 +588,7 @@ void ConfigurationManager::derive_configurations() {
   // probes-invalid-DATACRUMBS_INSTALL_USER-host.json
   std::string probe_invalid_file_name = "probes-invalid-" + lookup_file_suffix + ".json";
   this->probe_invalid_file_path = this->data_dir / probe_invalid_file_name;
+  this->probe_invalid_file_path = absolute_normalized_path(this->probe_invalid_file_path);
   DC_LOG_DEBUG("[ConfigurationManager] Probe invalid path: %s",
                this->probe_invalid_file_path.string().c_str());
 
@@ -580,6 +596,7 @@ void ConfigurationManager::derive_configurations() {
   // categories-DATACRUMBS_INSTALL_USER-host.json
   std::string categories_file_name = "categories-" + lookup_file_suffix + ".json";
   this->category_map_path = this->data_dir / categories_file_name;
+  this->category_map_path = absolute_normalized_path(this->category_map_path);
   DC_LOG_DEBUG("[ConfigurationManager] Category map path: %s",
                this->category_map_path.string().c_str());
 
@@ -587,11 +604,13 @@ void ConfigurationManager::derive_configurations() {
   // manual-probes-DATACRUMBS_INSTALL_USER-host.json
   std::string manual_probe_file_name = "manual-probes-" + lookup_file_suffix + ".json";
   this->manual_probe_path = this->data_dir / manual_probe_file_name;
+  this->manual_probe_path = absolute_normalized_path(this->manual_probe_path);
   DC_LOG_DEBUG("[ConfigurationManager] Manual probe path: %s",
                this->manual_probe_path.string().c_str());
 
   std::string system_probe_file_name = "system-probe-" + lookup_file_suffix + ".sqlite";
   this->system_probe_path = this->data_dir / system_probe_file_name;
+  this->system_probe_path = absolute_normalized_path(this->system_probe_path);
   DC_LOG_DEBUG("[ConfigurationManager] System probe path: %s",
                this->system_probe_path.string().c_str());
 }

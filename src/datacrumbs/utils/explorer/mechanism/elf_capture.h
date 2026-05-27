@@ -31,9 +31,9 @@ class ElfSymbolExtractor {
   /**
    * @brief Constructs the extractor for a given ELF file path.
    * @param path Path to the ELF file.
-    *        Example: "/usr/lib/x86_64-linux-gnu/libc.so.6".
-    * @param include_offsets Whether symbols should include relative offsets.
-    *        Example: true can produce symbols like "foo:0x18".
+   *        Example: "/usr/lib/x86_64-linux-gnu/libc.so.6".
+   * @param include_offsets Whether symbols should include relative offsets.
+   *        Example: true can produce symbols like "foo:0x18".
    */
   explicit ElfSymbolExtractor(const std::string& path, bool include_offsets = false);
 
@@ -44,8 +44,8 @@ class ElfSymbolExtractor {
 
   /**
    * @brief Extracts symbol and demangled symbol names from the ELF file.
-    * @return Vector of extracted symbol names.
-    * @throws std::runtime_error if the ELF cannot be parsed.
+   * @return Vector of extracted symbol names.
+   * @throws std::runtime_error if the ELF cannot be parsed.
    */
   std::vector<std::string> extract_symbols();
 
@@ -56,16 +56,16 @@ class ElfSymbolExtractor {
    */
   bool is_elf() const;
 
-    /// File descriptor for the ELF file.
-    int fd_;
-    /// Pointer to memory-mapped ELF data.
-    uint8_t* data_;
-    /// Size of mapped ELF file in bytes.
-    size_t size_;
-    /// Whether to include offsets in emitted symbol names.
-    bool include_offsets_;
-    /// Base address for relative symbols (0 for ET_DYN, entry point for ET_EXEC).
-    uint64_t base_address_;
+  /// File descriptor for the ELF file.
+  int fd_;
+  /// Pointer to memory-mapped ELF data.
+  uint8_t* data_;
+  /// Size of mapped ELF file in bytes.
+  size_t size_;
+  /// Whether to include offsets in emitted symbol names.
+  bool include_offsets_;
+  /// Base address for relative symbols (0 for ET_DYN, entry point for ET_EXEC).
+  uint64_t base_address_;
   std::unordered_set<std::string>
       kExcludedFunctions;  ///< Set of functions to exclude from extraction.
 };

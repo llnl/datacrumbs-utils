@@ -5,12 +5,12 @@
 // include first
 #include <datacrumbs/datacrumbs_utils_config.h>
 // other headers
-#include <datacrumbs/utils/common/configuration_manager.h>
 #include <datacrumbs/common/constants.h>
 #include <datacrumbs/common/logging.h>  // Use custom logging macros
 #include <datacrumbs/common/probe_file.h>
 #include <datacrumbs/common/singleton.h>
 #include <datacrumbs/common/utils.h>
+#include <datacrumbs/utils/common/configuration_manager.h>
 #include <datacrumbs/utils/explorer/mechanism/elf_capture.h>
 #include <datacrumbs/utils/explorer/mechanism/header_capture.h>
 #include <datacrumbs/utils/explorer/mechanism/ksym_capture.h>

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Owner: hariharandev1@llnl.gov
 
-#include <datacrumbs/utils/common/probe_signing_service.h>
-#include <datacrumbs/datacrumbs_utils_config.h>
 #include <arpa/inet.h>
-#include <netdb.h>
+#include <datacrumbs/datacrumbs_utils_config.h>
+#include <datacrumbs/utils/common/probe_signing_service.h>
 #include <json-c/json.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -169,7 +169,8 @@ bool request_probe_signature(const std::string& signing_payload, std::string* ch
   // Send JSON-RPC signing request document.
   json_object* request_root = json_object_new_object();
   json_object* params = json_object_new_object();
-  json_object_object_add(params, "signing_payload", json_object_new_string(signing_payload.c_str()));
+  json_object_object_add(params, "signing_payload",
+                         json_object_new_string(signing_payload.c_str()));
   json_object_object_add(request_root, "jsonrpc", json_object_new_string(kRpcVersion));
   json_object_object_add(request_root, "id", json_object_new_string("1"));
   json_object_object_add(request_root, "method", json_object_new_string(kSignMethod));

@@ -1,6 +1,5 @@
 #! /usr/bin/env bash
 
-
 log() {
 	if [[ "${QUIET:-0}" == "0" ]]; then
 		printf "[INFO $(date '+%Y-%m-%d %H:%M:%S')] $@"

@@ -239,8 +239,15 @@ macro(derive_configurations)
 
   set(DATACRUMBS_SRC_GEN_PATH ${CMAKE_LIBEXEC_OUTPUT_DIRECTORY})
   if(DATACRUMBS_CONFIGURED_LOG_DIR
-     AND NOT DATACRUMBS_CONFIGURED_LOG_DIR STREQUAL ""
-     AND NOT DATACRUMBS_CONFIGURED_LOG_DIR STREQUAL "NONE")
+     AND NOT
+         DATACRUMBS_CONFIGURED_LOG_DIR
+         STREQUAL
+         ""
+     AND NOT
+         DATACRUMBS_CONFIGURED_LOG_DIR
+         STREQUAL
+         "NONE"
+  )
     set(DATACRUMBS_LOG_DIR ${DATACRUMBS_CONFIGURED_LOG_DIR})
   else()
     set(DATACRUMBS_LOG_DIR ${CMAKE_BINARY_DIR}/logs)
@@ -452,8 +459,8 @@ macro(find_system_details)
     )
   endif()
 
-  # Do not re-detect kernel headers in utils. This value must be passed through
-  # from datacrumbs package exports (public config/header contract).
+  # Do not re-detect kernel headers in utils. This value must be passed through from datacrumbs
+  # package exports (public config/header contract).
   if(NOT DEFINED DATACRUMBS_KERNEL_HEADERS_PATH)
     set(DATACRUMBS_KERNEL_HEADERS_PATH "")
   endif()
@@ -463,7 +470,9 @@ macro(find_system_details)
         "[${UPPER_PROJECT_NAME}] DATACRUMBS_KERNEL_HEADERS_PATH is empty; expected pass-through from datacrumbs package export."
     )
   else()
-    message(STATUS "             - Using exported kernel headers path: ${DATACRUMBS_KERNEL_HEADERS_PATH}")
+    message(
+      STATUS "             - Using exported kernel headers path: ${DATACRUMBS_KERNEL_HEADERS_PATH}"
+    )
   endif()
 
   # Normalize architecture names

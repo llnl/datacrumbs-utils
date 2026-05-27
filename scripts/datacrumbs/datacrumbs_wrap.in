@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 DATACRUMBS_CLIENT_LIB="@DATACRUMBS_INSTALL_LIB_DIR@/libdatacrumbs_client.so"
 
 if [ ! -f "${DATACRUMBS_CLIENT_LIB}" ]; then

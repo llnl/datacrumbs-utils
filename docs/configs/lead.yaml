@@ -8,41 +8,6 @@ capture_probes:
     probe: kprobe
     type: header
     file: @DATACRUMBS_KERNEL_HEADERS_PATH@/include/linux/pagemap.h
-  - name: lustre
-    probe: kprobe
-    type: binary
-    file: @DATACRUMBS_LUSTRE_LUSTRE_KO@
-    regex: (?!.*__)(?!.*:)(?!.*constprop)(?!.*isra).*
-  - name: mdc
-    probe: kprobe
-    type: binary
-    file: @DATACRUMBS_LUSTRE_MDC_KO@
-    regex: (?!.*__)(?!.*:)(?!.*constprop)(?!.*isra).*
-  - name: mgc
-    probe: kprobe
-    type: binary
-    file: @DATACRUMBS_LUSTRE_MGC_KO@
-    regex: (?!.*__)(?!.*:)(?!.*constprop)(?!.*isra).*
-  - name: osc
-    probe: kprobe
-    type: binary
-    file: @DATACRUMBS_LUSTRE_OSC_KO@
-    regex: (?!.*__)(?!.*:)(?!.*constprop)(?!.*isra).*
-  - name: ptlrpc
-    probe: kprobe
-    type: binary
-    file: @DATACRUMBS_LUSTRE_PTLRPC_KO@
-    regex: (?!.*__)(?!.*:)(?!.*constprop)(?!.*isra).*
-  - name: mpi
-    probe: uprobe
-    type: binary
-    file: @DATACRUMBS_MPI_LIB@
-    regex: .*
-  - name: ior
-    probe: uprobe
-    type: binary
-    file: @DATACRUMBS_IOR_BINARY@
-    regex: .*
   # - name: iomap
   #   probe: kprobe
   #   type: ksym
@@ -54,5 +19,6 @@ capture_probes:
   - name: libc
     probe: uprobe
     type: binary
-    file: @DATACRUMBS_LIBC_SO@
+    file: /lib64/libc.so.6
     regex: ^(open|open64|openat|openat64|creat|creat64|close|read|write|pread|pwrite|pread64|pwrite64|readv|writev|preadv|pwritev|preadv64|pwritev64|lseek|lseek64|fsync|fdatasync|sync|mmap|mmap64|munmap|mprotect|msync|madvise|brk|sbrk|mlock|munlock|mlockall|munlockall|posix_madvise|posix_memalign|memalign|aligned_alloc|valloc|pvalloc|malloc|calloc|realloc|free|memcpy|memmove|memset|memcmp|memchr|rawmemchr|memrchr|strcpy|strncpy|strcat|strncat|strcmp|strncmp|strlen|strnlen|strchr|strrchr|strstr|strpbrk|strspn|strcspn|strdup|strndup|fopen|fopen64|freopen|freopen64|fdopen|fclose|fflush|fread|fwrite|fgetc|getc|getchar|fputc|putc|putchar|fgets|fputs|puts|ungetc|getline|getdelim|fseek|ftell|rewind|fseeko|ftello|fgetpos|fsetpos|fileno|feof|ferror|clearerr|setvbuf|setbuf|setbuffer|setlinebuf|fprintf|printf|snprintf|sprintf|vfprintf|vprintf|vsnprintf|vsprintf|scanf|fscanf|sscanf|vscanf|vfscanf|vsscanf)(@@?|$).*
+    
